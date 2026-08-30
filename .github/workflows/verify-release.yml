@@ -19,5 +19,67 @@ jobs:
   verify:
     uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@v0.7
     with:
-      receipt: "proofs/secretgate-v1.1.0-proof.md"
+      receipt: "proofs/secretgate-v1.2.0-proof.md"
       require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"
+
+  # Negative controls: the verifier's REJECTIONS are pinned as committed
+  # attack fixtures (C's aae8009 pattern, mirrored here). A green "verified"
+  # badge means nothing unless the same code fails these. Fixtures are signed
+  # by the PUBLIC throwaway key (private key = 0x…0003, literally public),
+  # so anyone can reproduce the attack locally — see README.
+  negative-controls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout ethkey-lite (verifier tool, pinned)
+        uses: actions/checkout@v4
+        with:
+          repository: tianzhicdev/ethkey-lite
+          ref: v0.7
+          path: .ethkey-tools
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run rejection matrix
+        shell: bash
+        env:
+          A_ADDR: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"
+          PK3_ADDR: "0x6813Eb9362372EEF6200f3b1dbC3f819671cBA69"
+        run: |
+          set -euo pipefail
+          pip install --quiet pycryptodome
+          EK="python3 .ethkey-tools/ethkey.py"
+          fails=0
+          expect() { # expect <exit|!exit> <desc> <cmd...>   ('exit' = nonzero expected)
+            local want="$1" desc="$2"; shift 2
+            local out rc=0
+            out="$("$@" 2>&1)" || rc=$?
+            if { [ "$want" = "exit" ] && [ "$rc" -eq 0 ]; } || \
+               { [ "$want" = "!exit" ] && [ "$rc" -ne 0 ]; }; then
+              echo "FAIL: $desc (rc=$rc)"; echo "$out" | tail -1; fails=$((fails+1))
+            else
+              echo "ok: $desc (rc=$rc)"
+            fi
+          }
+          # FORGED fixture: valid pk=3 signature, signer header forged to A's addr.
+          expect exit "F1 forged fixture bare verify must FAIL" \
+            $EK verify proofs/c20-forged-signer-fixture.md
+          expect exit "F2 forged fixture --require A must FAIL" \
+            $EK verify proofs/c20-forged-signer-fixture.md --require "$A_ADDR"
+          expect exit "F3 forged fixture --require TRUE signer must FAIL (header != recovered)" \
+            $EK verify proofs/c20-forged-signer-fixture.md --require "$PK3_ADDR"
+          # THROWAWAY fixture: genuine pk=3 receipt, header honest.
+          expect !exit "T1 throwaway fixture bare verify must PASS" \
+            $EK verify proofs/c20-throwaway-signed-fixture.md
+          expect exit "T2 throwaway fixture --require A must FAIL" \
+            $EK verify proofs/c20-throwaway-signed-fixture.md --require "$A_ADDR"
+          expect !exit "T3 throwaway fixture --require true signer must PASS" \
+            $EK verify proofs/c20-throwaway-signed-fixture.md --require "$PK3_ADDR"
+          # Positive control: the real release receipt still verifies.
+          expect !exit "P1 real v1.2.0 receipt --require A must PASS" \
+            $EK verify proofs/secretgate-v1.2.0-proof.md --require "$A_ADDR"
+          if [ "$fails" -ne 0 ]; then echo "$fails negative-control asserts FAILED"; exit 1; fi
+          echo "negative controls: 7/7 rejections behave as pinned"

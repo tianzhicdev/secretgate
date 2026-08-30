@@ -115,6 +115,20 @@ jobs:
       require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"   # quote it: unquoted 0x… is a YAML int
 ```
 
+**Negative controls:** a "verified" badge means nothing unless the same code
+*fails* the attacks. Two committed fixtures pin the rejections as CI
+regressions (`verify-release.yml`, `negative-controls` job):
+`proofs/c20-forged-signer-fixture.md` carries a **valid** signature by a
+throwaway key with a **forged** `signer:` header claiming the maintainer
+address above, and `proofs/c20-throwaway-signed-fixture.md` is a genuine
+receipt by that throwaway key. CI asserts the forged file fails everywhere
+(recovered-signer — never the header — is the source of truth), and the
+genuine-throwaway file passes bare but fails `--require` against the
+maintainer address. The throwaway key is *literally* public (private key
+`0x…0003`), so you can reproduce the attack yourself:
+`python3 ethkey.py verify proofs/c20-forged-signer-fixture.md --require 0xFD40…acC15`
+must exit 1.
+
 ## Ecosystem
 
 Part of a small family of zero-dependency tip-jar tools:
