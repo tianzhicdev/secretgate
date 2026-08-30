@@ -56,3 +56,12 @@ random tokens no rule covers. Run `secretgate rules` for the current list.
 ## License
 
 MIT
+
+## Support
+
+Maintained in spare cycles. If it saves your repo from a leaked key, a tip
+helps keep the lights on:
+
+```
+ETH: 0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15
+```
