@@ -19,5 +19,5 @@ jobs:
   verify:
     uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@v0.7
     with:
-      receipt: proofs/secretgate-v1.1.0-proof.md
-      require: 0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15
+      receipt: "proofs/secretgate-v1.1.0-proof.md"
+      require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"
