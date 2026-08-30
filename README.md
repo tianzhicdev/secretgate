@@ -29,6 +29,20 @@ Exit code is 1 when findings exist, 0 when clean — chain it in CI:
 - run: python3 tools/secretgate.py scan --staged
 ```
 
+### As a GitHub Action (recommended)
+
+```yaml
+- uses: tianzhicdev/secretgate-action@v1.1.0
+  with:
+    scan: working   # or: staged, history
+    fail: "true"    # "false" = annotations only, never fail
+```
+
+[tianzhicdev/secretgate-action](https://github.com/tianzhicdev/secretgate-action)
+fetches this file and runs it — annotations on offending lines, a job-summary
+table, no binary installs.
+
+
 ## False positives
 
 Mark a line to skip it:
