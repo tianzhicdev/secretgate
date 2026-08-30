@@ -54,7 +54,8 @@ TOKEN = "..."  # secretgate: allow
 The annotation must be on the **same line** as the finding — it applies to
 that line only, never to neighboring lines. Any comment syntax works
 (`#`, `//`, `<!-- -->`), and `nosec`, `pragma: allowlist`, and `do not flag`
-are honored too.
+are honored too. This boundary is pinned by an executable 10-case matrix
+(`scripts/sameline-matrix.py`) that the secrets CI runs on every push.
 
 Placeholders (`changeme`, `<your-key>`, `{{ vault }}`, ...) and all-zeros
 strings are already ignored by the generic/entropy rules.
