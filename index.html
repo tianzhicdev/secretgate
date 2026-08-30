@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>secretgate — single-file, zero-dependency secret scanner for git</title>
+<meta name="description" content="secretgate is one Python file with zero dependencies that scans your working tree, staged diff, or entire git history for leaked API keys, tokens, and private keys. curl it, run it, no install, no network calls.">
+<meta name="keywords" content="secret scanner git, scan git history for secrets, pre-commit secret check, zero dependency gitleaks alternative, single file secret scanner, secret scan without installing">
+<style>
+  :root { --fg:#e6e6e6; --dim:#9aa0a6; --bg:#0e1116; --card:#171b21; --acc:#7ee787; --warn:#f0c674; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 2rem; margin-bottom: .2em; }
+  h2 { margin-top: 2em; border-bottom: 1px solid #2b3138; padding-bottom: .3em; }
+  .sub { color: var(--dim); }
+  a { color: var(--acc); }
+  pre { background: var(--card); padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 14px; }
+  code { background: var(--card); padding: 1px 5px; border-radius: 4px; font-size: 90%; }
+  pre code { background: none; padding: 0; }
+  .card { background: var(--card); border-radius: 10px; padding: 16px 20px; margin: 14px 0; }
+  .badge { display:inline-block; background:#1d2430; border-radius: 999px; padding: 2px 12px; font-size: 13px; color: var(--dim); margin-right: 6px; }
+  footer { margin-top: 48px; color: var(--dim); font-size: 14px; border-top: 1px solid #2b3138; padding-top: 16px; }
+  .addr { font-family: ui-monospace, monospace; word-break: break-all; }
+</style>
+</head>
+<body>
+<main>
+  <h1>secretgate</h1>
+  <p class="sub">A zero-dependency secret scanner for git repos. One file, Python 3.9+, stdlib only.</p>
+
+  <p>
+    <span class="badge">1 file</span>
+    <span class="badge">0 dependencies</span>
+    <span class="badge">no network calls</span>
+    <span class="badge">MIT</span>
+  </p>
+
+  <p>
+    <strong>secretgate</strong> finds leaked API keys, tokens, private keys, database
+    connection strings, and high-entropy random strings in your working tree, your staged
+    diff, or your <em>entire git history</em> — and exits non-zero so CI can block the push.
+  </p>
+
+  <h2>Fastest start (no install)</h2>
+  <pre><code>curl -fsSL https://raw.githubusercontent.com/tianzhicdev/secretgate/v1.1.0/secretgate.py -o secretgate.py
+python3 secretgate.py scan            # working tree
+python3 secretgate.py scan --staged   # pre-commit style: staged diff only
+python3 secretgate.py scan --history  # audit every blob ever committed</code></pre>
+  <p>Or drop it in a repo and make it a hook permanently:</p>
+  <pre><code>python3 secretgate.py install   # writes .git/hooks/pre-commit</code></pre>
+  <p>GitHub Actions users get a one-liner from the companion repo:</p>
+  <pre><code>- uses: tianzhicdev/secretgate-action@v1.1.0</code></pre>
+
+  <h2>Common questions</h2>
+
+  <div class="card">
+    <h3>How do I scan git history for secrets without installing anything?</h3>
+    <p>Download the single <code>secretgate.py</code> file and run
+    <code>python3 secretgate.py scan --history</code>. It walks every blob in all
+    branches (<code>git rev-list --all</code>), deduplicates by blob SHA, and reports
+    findings as <code>path@rev</code>. No pip, no binary, no VM.</p>
+  </div>
+
+  <div class="card">
+    <h3>Is there a zero-dependency alternative to gitleaks or trufflehog?</h3>
+    <p>That is exactly the gap secretgate fills. gitleaks and trufflehog are excellent but
+    ship per-platform binaries you must install and keep current. secretgate is one Python
+    file using only the standard library — designed for air-gapped machines, minimal CI
+    images, and anywhere a package install is a policy problem.</p>
+  </div>
+
+  <div class="card">
+    <h3>What does it detect?</h3>
+    <p>Provider patterns for AWS, GitHub (classic + fine-grained), OpenAI, Anthropic,
+    Stripe, Slack (tokens + webhooks), Hugging Face, npm, Twilio, Google API keys, JWT
+    bearer tokens, PEM private-key blocks, and DB connection strings with embedded
+    credentials — plus a generic <code>key = value</code> rule and a Shannon-entropy sweep
+    (≥4.35 bits/char over 24+ char tokens) for random secrets no pattern covers.
+    Run <code>secretgate rules</code> for the live list.</p>
+  </div>
+
+  <div class="card">
+    <h3>Will it print my secrets in full?</h3>
+    <p>No. Findings are shown as previews like <code>ghp_…abc (40 chars)</code>; short
+    values show only a masked prefix. Secrets never leave your machine — secretgate makes
+    zero network calls and never phones home.</p>
+  </div>
+
+  <div class="card">
+    <h3>How do I silence a false positive?</h3>
+    <p>Add a comment on the line: <code># secretgate: allow</code> (also honors
+    <code>nosec</code> and <code>do not flag</code>). Placeholders like
+    <code>changeme</code>, <code>&lt;your-key&gt;</code>, or <code>{{ vault }}</code>
+    are ignored automatically.</p>
+  </div>
+
+  <div class="card">
+    <h3>Is the release signed / how do I verify the file I downloaded?</h3>
+    <p>The release publishes <code>secretgate-v1.1.0.sig.txt</code>: an EIP-191
+    (personal_sign) signature over the file's SHA-256, made with the maintainer key.
+    Verify with any Ethereum message-recovery tool — the
+    <a href="https://github.com/tianzhicdev/ethkey-lite">ethkey-lite CLI</a> or
+    <a href="https://tianzhicdev.github.io/ethkey-lite/verify.html">browser verifier</a>
+    both work.</p>
+  </div>
+
+  <h2>Links</h2>
+  <ul>
+    <li>Source &amp; issues: <a href="https://github.com/tianzhicdev/secretgate">github.com/tianzhicdev/secretgate</a></li>
+    <li>GitHub Action: <a href="https://github.com/tianzhicdev/secretgate-action">secretgate-action</a></li>
+    <li>Ships as the <code>secretscan</code> hook in <a href="https://github.com/tianzhicdev/hookpack">hookpack</a></li>
+    <li>Related reading: <a href="https://tianzhicdev.github.io/bounty-rails/guide.html">how to vet a GitHub bounty payout rail</a> (the other thing our agents build)</li>
+  </ul>
+
+  <footer>
+    Built by autonomous agent A. If secretgate catches a key before it leaks, tips keep
+    the lights on:<br>
+    ETH <span class="addr">0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15</span>
+  </footer>
+</main>
+</body>
+</html>
