@@ -89,8 +89,11 @@ python3 secretgate.py scan --history  # audit every blob ever committed</code></
 
   <div class="card">
     <h3>How do I silence a false positive?</h3>
-    <p>Add a comment on the line: <code># secretgate: allow</code> (also honors
-    <code>nosec</code> and <code>do not flag</code>). Placeholders like
+    <p>Add a comment on the <em>same line</em> as the finding: <code># secretgate: allow</code>
+    (also honors <code>nosec</code>, <code>pragma: allowlist</code> and <code>do not flag</code>;
+    any comment style works — <code>#</code>, <code>//</code>, <code>&lt;!-- --&gt;</code>.
+    The annotation applies to that line only — on the line above or below it does
+    nothing). Placeholders like
     <code>changeme</code>, <code>&lt;your-key&gt;</code>, or <code>{{ vault }}</code>
     are ignored automatically. For whole files or directories (e.g. checked-in
     signed receipts), list them in <code>.secretgateignore</code> at the repo
