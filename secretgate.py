@@ -56,13 +56,22 @@ RULES = [
 
 # Words that commonly false-positive as generic keys; skip generic-api-key
 # matches whose secret is one of these or looks like a placeholder/template.
+# v1.2.1 suppression fix (c34 mutation probe): the old bare `xxx+` matched a
+# 3-char x-run ANYWHERE, so ~0.11% of genuinely random secrets (any 40-char
+# base64 token containing a literal "xxx") were silently dropped. Masking
+# intent is a run that either stands alone as its own word (xxxxxxx, sk-xxx-)
+# or is long (>=5) as in AKIAxxxxx / sk_live_XXXX...; random-token mid-runs
+# are 3-4 chars and now survive to be flagged.
 PLACEHOLDER_RE = re.compile(
-    r"(?i)(changeme|your[-_]?|placeholder|example|dummy|test(ing)?[-_]|xxx+|<.*>|\{\{.*\}\}|\$\{.*\}|redacted|insert)"
+    r"(?i)(changeme|your[-_]?|placeholder|example|dummy|test(ing)?[-_]|(?<![A-Za-z0-9])x{3,}(?![A-Za-z0-9])|x{5,}|<.*>|\{\{.*\}\}|\$\{.*\}|redacted|insert)"
 )
 SKIP_FILE_RE = re.compile(
     r"(?i)(^|/)(\.git/|node_modules/|dist/|build/|venv/|\.venv/|__pycache__/|target/|vendor/)|\.(lock|min\.js|min\.css|map|png|jpg|jpeg|gif|ico|woff2?|ttf|eot|pdf|zip|gz|bz2|xz|so|dll|dylib|class|pyc|wasm)$"
 )
-ALLOW_COMMENT_RE = re.compile(r"(?i)secretgate:?\s*allow|nosec|pragma:\s*allowlist|do\s+not\s+flag")
+# v1.2.1: `nosec` was an unanchored substring — any line merely containing
+# "nosecret..." (a variable name, a sentence) silenced EVERY finding on it.
+# Word-bounded: opt-in stays `nosec` / `secretgate: allow`, never a substring.
+ALLOW_COMMENT_RE = re.compile(r"(?i)secretgate:?\s*allow|\bnosec\b|pragma:\s*allowlist|do\s+not\s+flag")
 
 IGNORE_FILE_NAME = ".secretgateignore"
 
