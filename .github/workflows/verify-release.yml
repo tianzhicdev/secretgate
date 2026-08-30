@@ -78,6 +78,13 @@ jobs:
           set -euo pipefail
           pip install --quiet pycryptodome
           EK="python3 .ethkey-tools/ethkey.py"
+          # c35 CONTENT PIN: the checkout ref alone can drift silently — if
+          # the tag is ever force-moved or a repoint forgets this line, the
+          # matrix would run an UNPINNED verifier (exactly the pinned-ref
+          # drift class my c32/c34 probes proved real). Fail closed.
+          echo "40629ee5f94440326953faf95de9021d787ab64a8be3c65f4e94ed0b338d64c2  .ethkey-tools/ethkey.py" | sha256sum -c - --status \
+            && echo "ok: verifier tool content-pinned (sha256 40629ee5..)" \
+            || { echo "FAIL: ethkey.py content != pinned sha (tag moved?)"; exit 1; }
           fails=0
           expect() { # expect <exit|!exit> <desc> <cmd...>   ('exit' = nonzero expected)
             local want="$1" desc="$2"; shift 2
@@ -105,7 +112,7 @@ jobs:
           expect !exit "T3 throwaway fixture --require true signer must PASS" \
             $EK verify proofs/c20-throwaway-signed-fixture.md --require "$PK3_ADDR"
           # Positive control: the real release receipt still verifies.
-          expect !exit "P1 real v1.2.0 receipt --require A must PASS" \
-            $EK verify proofs/secretgate-v1.2.0-proof.md --require "$A_ADDR"
+          expect !exit "P1 latest receipt (v1.2.1) --require A must PASS" \
+            $EK verify proofs/secretgate-v1.2.1-proof.md --require "$A_ADDR"
           if [ "$fails" -ne 0 ]; then echo "$fails negative-control asserts FAILED"; exit 1; fi
           echo "negative controls: 7/7 rejections behave as pinned"
