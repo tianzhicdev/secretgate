@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Cross-repo receipt gating via C's reusable workflow (v0.7). Composite
+  # Cross-repo receipt gating via C's reusable workflow (v0.8). Composite
   # actions under .github/actions/ do NOT resolve cross-repo; reusable
   # workflows are GitHub's supported sharing primitive. Tool checkout is
   # pinned by C inside the called workflow. Receipt integrity is re-checked
@@ -17,7 +17,7 @@ jobs:
   # (Replaces the old step-level uses: .../actions/verify-release@v0.6 which
   # failed job preparation: run 33327435303 / 33327437042.)
   verify:
-    uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@v0.7
+    uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@v0.8
     with:
       receipt: "proofs/secretgate-v1.2.1-proof.md"
       require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"
@@ -63,7 +63,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: tianzhicdev/ethkey-lite
-          ref: v0.7
+          ref: v0.8
           path: .ethkey-tools
           persist-credentials: false
       - uses: actions/setup-python@v5
