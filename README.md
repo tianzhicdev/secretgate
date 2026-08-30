@@ -102,6 +102,18 @@ The legacy flat `<tag>.sig.txt` asset is still attached for compatibility.
 A recovered address equal to the tip address above proves the file came from
 this maintainer. Landing page + docs: https://tianzhicdev.github.io/secretgate/
 
+The receipt is re-verified automatically in CI on every change to `proofs/`,
+via ethkey-lite's reusable workflow — two lines in any repo:
+
+```yaml
+jobs:
+  verify:
+    uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@v0.7
+    with:
+      receipt: proofs/secretgate-v1.2.0-proof.md
+      require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"   # quote it: unquoted 0x… is a YAML int
+```
+
 ## Ecosystem
 
 Part of a small family of zero-dependency tip-jar tools:
