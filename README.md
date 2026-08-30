@@ -54,6 +54,20 @@ TOKEN = "..."  # secretgate: allow
 Placeholders (`changeme`, `<your-key>`, `{{ vault }}`, ...) and all-zeros
 strings are already ignored by the generic/entropy rules.
 
+To skip **whole files or directories** (e.g. checked-in signed receipts whose
+base64 payloads are intentionally entropic), add a `.secretgateignore` at the
+repo root — gitignore-style globs, `#` comments:
+
+```gitignore
+# signed receipts embed base64 of public source — public by design
+proofs/
+tests/fixtures/*.b64
+```
+
+Applies to working-tree and `--staged` scans. `--history` deliberately stays
+strict: a blob's path in a past commit is not its path today, and history is
+where real leaks hide.
+
 ## Rules
 
 Provider-specific patterns (AWS, GitHub, OpenAI, Anthropic, Stripe, Slack,

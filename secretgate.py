@@ -12,6 +12,13 @@ Usage:
   secretgate install                  install as pre-commit hook in this repo
   secretgate rules                    list built-in detection rules
 
+Ignore files:
+  Lines in .secretgateignore (repo root; gitignore-style globs, # comments)
+  exclude paths from scanning. Use for intentionally-entropic files like
+  checked-in signed receipts or fixtures, e.g.:
+      proofs/
+      tests/fixtures/*.b64
+
 Exit code 1 if findings, 0 otherwise. Use --fail-on-none to always exit 0.
 """
 
@@ -56,6 +63,51 @@ SKIP_FILE_RE = re.compile(
     r"(?i)(^|/)(\.git/|node_modules/|dist/|build/|venv/|\.venv/|__pycache__/|target/|vendor/)|\.(lock|min\.js|min\.css|map|png|jpg|jpeg|gif|ico|woff2?|ttf|eot|pdf|zip|gz|bz2|xz|so|dll|dylib|class|pyc|wasm)$"
 )
 ALLOW_COMMENT_RE = re.compile(r"(?i)secretgate:?\s*allow|nosec|pragma:\s*allowlist|do\s+not\s+flag")
+
+IGNORE_FILE_NAME = ".secretgateignore"
+
+
+def load_ignore_patterns(root: str = ".") -> list[str]:
+    """Read .secretgateignore at repo/root dir. Blank lines and # comments ignored."""
+    path = os.path.join(root, IGNORE_FILE_NAME)
+    if not os.path.isfile(path):
+        return []
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            return [ln.strip() for ln in fh
+                    if ln.strip() and not ln.strip().startswith("#")]
+    except OSError:
+        return []
+
+
+def is_ignored(rel_path: str, patterns: list[str]) -> bool:
+    """gitignore-flavoured match: 'dir/' prefixes, '*' globs via fnmatch,
+    bare names match any path segment or a file's basename."""
+    from fnmatch import fnmatch
+    parts = rel_path.split("/")
+    for pat in patterns:
+        if pat.endswith("/"):
+            d = pat.rstrip("/")
+            if any(fnmatch(p, d) for p in parts[:-1]):
+                return True
+        elif "*" in pat or "?" in pat:
+            if fnmatch(rel_path, pat) or any(fnmatch(p, pat) for p in parts):
+                return True
+        else:
+            if rel_path == pat or parts[-1] == pat or pat in parts:
+                return True
+    return False
+
+
+def _ignore_root(root: str = ".") -> str:
+    """Where to look for .secretgateignore: repo top-level if in a git repo."""
+    try:
+        top = git("rev-parse", "--show-toplevel").strip()
+        if top:
+            return top
+    except Exception:
+        pass
+    return root
 
 ENTROPY_MIN_LEN = 24
 ENTROPY_THRESHOLD = 4.35  # bits/char; ~random base64/hex tokens exceed this
@@ -167,7 +219,10 @@ def read_text(p: str) -> str | None:
 
 def scan_working_tree(root: str) -> list[Finding]:
     findings = []
+    ignore_pats = load_ignore_patterns(_ignore_root(root))
     for name, p in files_working_tree(root):
+        if is_ignored(name, ignore_pats):
+            continue
         text = read_text(p)
         if text is None:
             continue
@@ -177,6 +232,7 @@ def scan_working_tree(root: str) -> list[Finding]:
 
 def scan_staged() -> list[Finding]:
     findings = []
+    ignore_pats = load_ignore_patterns(_ignore_root())
     diff = git("diff", "--cached", "--unified=0")
     cur = None
     lineno = 0
@@ -187,7 +243,7 @@ def scan_staged() -> list[Finding]:
             m = re.search(r"\+(\d+)", dline)
             lineno = int(m.group(1)) if m else 0
         elif dline.startswith("+") and not dline.startswith("+++"):
-            if cur and not SKIP_FILE_RE.search(cur):
+            if cur and not SKIP_FILE_RE.search(cur) and not is_ignored(cur, ignore_pats):
                 for f in scan_text(dline[1:], cur):
                     findings.append(f._replace(line=lineno))
             lineno += 1
@@ -199,6 +255,9 @@ def line_is_new_file(dline: str) -> bool:
 
 
 def scan_history() -> list[Finding]:
+    # NOTE: history scan is deliberately ignore-file-free: a blob's path in a
+    # past commit is not its path today, so honoring .secretgateignore here
+    # could hide genuinely-leaked history. Keep --history strict.
     findings = []
     revs = git("rev-list", "--all").split()
     seen_blobs = set()
