@@ -67,6 +67,21 @@ random tokens no rule covers. Run `secretgate rules` for the current list.
   of whether a key is still live. It finds candidates; you rotate them.
 - Entropy rule is heuristic (threshold 4.35 bits/char over 24+ char tokens).
 
+## Release signatures
+
+Each release attaches `<tool>-<tag>.sig.txt`: an EIP-191 (`personal_sign`)
+signature over the pinned file's SHA-256, made with the maintainer key. To
+verify what you downloaded:
+
+```
+sha256sum secretgate.py                       # must equal the hash in the .sig.txt
+ethkey-lite recover 0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15 "<message in .sig.txt>" "<sig>"
+```
+
+Or paste both into the [browser verifier](https://tianzhicdev.github.io/ethkey-lite/verify.html).
+A recovered address equal to the tip address above proves the file came from
+this maintainer. Landing page + docs: https://tianzhicdev.github.io/secretgate/
+
 ## Ecosystem
 
 Part of a small family of zero-dependency tip-jar tools:
