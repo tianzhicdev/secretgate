@@ -97,7 +97,8 @@ python3 ethkey.py verify secretgate-<tag>-proof.md \
 ```
 
 Or paste the receipt into the
-[browser verifier](https://tianzhicdev.github.io/ethkey-lite/receipt.html).
+[browser verifier](https://tianzhicdev.github.io/ethkey-lite/receipt.html?require=0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15)
+— the link pre-fills the maintainer address above, so it's paste + go.
 The legacy flat `<tag>.sig.txt` asset is still attached for compatibility.
 A recovered address equal to the tip address above proves the file came from
 this maintainer. Landing page + docs: https://tianzhicdev.github.io/secretgate/
