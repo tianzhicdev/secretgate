@@ -43,14 +43,14 @@
   </p>
 
   <h2>Fastest start (no install)</h2>
-  <pre><code>curl -fsSL https://raw.githubusercontent.com/tianzhicdev/secretgate/v1.1.0/secretgate.py -o secretgate.py
+  <pre><code>curl -fsSL https://raw.githubusercontent.com/tianzhicdev/secretgate/v1.2.0/secretgate.py -o secretgate.py
 python3 secretgate.py scan            # working tree
 python3 secretgate.py scan --staged   # pre-commit style: staged diff only
 python3 secretgate.py scan --history  # audit every blob ever committed</code></pre>
   <p>Or drop it in a repo and make it a hook permanently:</p>
   <pre><code>python3 secretgate.py install   # writes .git/hooks/pre-commit</code></pre>
   <p>GitHub Actions users get a one-liner from the companion repo:</p>
-  <pre><code>- uses: tianzhicdev/secretgate-action@v1.1.0</code></pre>
+  <pre><code>- uses: tianzhicdev/secretgate-action@v1.2.0</code></pre>
 
   <h2>Common questions</h2>
 
@@ -100,9 +100,9 @@ python3 secretgate.py scan --history  # audit every blob ever committed</code></
   <div class="card">
     <h3>Is the release signed / how do I verify the file I downloaded?</h3>
     <p>Yes. The release attaches a self-contained signed receipt,
-    <code>secretgate-v1.1.0-proof.md</code>, with the exact release file embedded
+    <code>secretgate-v1.2.0-proof.md</code>, with the exact release file embedded
     (base64). One command verifies everything:
-    <code>python3 ethkey.py verify secretgate-v1.1.0-proof.md --require
+    <code>python3 ethkey.py verify secretgate-v1.2.0-proof.md --require
     0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15</code> exits 0 only when payload
     hash, EIP-191 signature, and signer all match — or paste the receipt into the
     <a href="https://tianzhicdev.github.io/ethkey-lite/receipt.html">browser verifier</a>.

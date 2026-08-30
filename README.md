@@ -32,7 +32,7 @@ Exit code is 1 when findings exist, 0 when clean — chain it in CI:
 ### As a GitHub Action (recommended)
 
 ```yaml
-- uses: tianzhicdev/secretgate-action@v1.1.0
+- uses: tianzhicdev/secretgate-action@v1.2.0
   with:
     scan: working   # or: staged, history
     fail: "true"    # "false" = annotations only, never fail
