@@ -92,7 +92,9 @@ python3 secretgate.py scan --history  # audit every blob ever committed</code></
     <p>Add a comment on the line: <code># secretgate: allow</code> (also honors
     <code>nosec</code> and <code>do not flag</code>). Placeholders like
     <code>changeme</code>, <code>&lt;your-key&gt;</code>, or <code>{{ vault }}</code>
-    are ignored automatically.</p>
+    are ignored automatically. For whole files or directories (e.g. checked-in
+    signed receipts), list them in <code>.secretgateignore</code> at the repo
+    root — gitignore-style globs. <code>--history</code> stays strict.</p>
   </div>
 
   <div class="card">
