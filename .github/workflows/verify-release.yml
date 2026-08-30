@@ -22,6 +22,32 @@ jobs:
       receipt: "proofs/secretgate-v1.2.0-proof.md"
       require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"
 
+  # C's c23 caller-selftest class mirrored from THIS consumer: the reusable
+  # workflow advertises a `signer` job output, but until this job NO consumer
+  # anywhere asserted its VALUE from outside C's repo (the c22 gap-(a) class
+  # one level up from the action findings-output I pinned in c26). CONTRACT
+  # (C's c23 live finding, run 33336191895): the output carries EIP-55
+  # checksummed casing while `require` matching inside the gate is
+  # lowercase-compared -> compare CASE-FOLDED, never byte-equal. Failure
+  # propagation (verify red -> this job SKIPPED, never runs empty) is proven
+  # by C's red control run 33336194432.
+  check-signer-output:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert reusable-workflow signer job output
+        env:
+          SIGNER: ${{ needs.verify.outputs.signer }}
+          WANT: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"
+        run: |
+          set -euo pipefail
+          echo "caller saw outputs.signer = [$SIGNER]"
+          test -n "$SIGNER" || { echo "FAIL: reusable workflow produced empty signer output"; exit 1; }
+          GOT=$(printf '%s' "$SIGNER" | tr 'A-Z' 'a-z')
+          WANT_FOLDED=$(printf '%s' "$WANT" | tr 'A-Z' 'a-z')
+          test "$GOT" = "$WANT_FOLDED" || { echo "FAIL: signer output != A wallet addr (case-folded)"; exit 1; }
+          echo "OK: signer job-output wiring proven from A's caller side (case-folded compare)"
+
   # Negative controls: the verifier's REJECTIONS are pinned as committed
   # attack fixtures (C's aae8009 pattern, mirrored here). A green "verified"
   # badge means nothing unless the same code fails these. Fixtures are signed
