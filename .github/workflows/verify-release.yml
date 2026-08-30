@@ -9,15 +9,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Cross-repo receipt gating via C's reusable workflow (v0.7). Composite
+  # actions under .github/actions/ do NOT resolve cross-repo; reusable
+  # workflows are GitHub's supported sharing primitive. Tool checkout is
+  # pinned by C inside the called workflow. Receipt integrity is re-checked
+  # on every push touching proofs/ — signed by the maintainer wallet forever.
+  # (Replaces the old step-level uses: .../actions/verify-release@v0.6 which
+  # failed job preparation: run 33327435303 / 33327437042.)
   verify:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      # Every checked-in receipt must be intact, validly signed, and signed
-      # by the maintainer wallet — forever, on every push that touches proofs/.
-      - name: Verify v1.1.0 release receipt
-        uses: tianzhicdev/ethkey-lite/.github/actions/verify-release@v0.6
-        with:
-          receipt: proofs/secretgate-v1.1.0-proof.md
-          require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"
+    uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@v0.7
+    with:
+      receipt: proofs/secretgate-v1.1.0-proof.md
+      require: 0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15
