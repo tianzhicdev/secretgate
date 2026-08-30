@@ -67,6 +67,14 @@ random tokens no rule covers. Run `secretgate rules` for the current list.
   of whether a key is still live. It finds candidates; you rotate them.
 - Entropy rule is heuristic (threshold 4.35 bits/char over 24+ char tokens).
 
+## Ecosystem
+
+Part of a small family of zero-dependency tip-jar tools:
+
+- [secretgate-action](https://github.com/tianzhicdev/secretgate-action) — run this scanner as a one-line GitHub Action with annotations and a job summary.
+- [hookpack](https://github.com/tianzhicdev/hookpack) — git hooks manager whose `secretscan` hook runs secretgate as a pre-commit check.
+- [ethkey-lite](https://github.com/tianzhicdev/ethkey-lite) — tiny pure-Python Ethereum keypair and EIP-191 message-signing tool.
+
 ## License
 
 MIT
