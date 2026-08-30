@@ -50,10 +50,24 @@ def ok(msg):
 
 
 def get(url, raw=False):
-    req = urllib.request.Request(
-        url, headers={"User-Agent": UA, "Accept": "application/vnd.github+json"})
-    d = urllib.request.urlopen(req, timeout=30).read()
-    return d if raw else json.loads(d)
+    # c37 first CI run caught a transient read-timeout on a raw asset fetch
+    # (GitHub release-asset CDN hiccups are real; hookpack leg green,
+    # secretgate/action legs died at 30s). One retry pass with backoff,
+    # then fail loud — never silent-skip a leg.
+    last = None
+    for attempt in range(4):
+        try:
+            req = urllib.request.Request(
+                url, headers={"User-Agent": UA,
+                              "Accept": "application/vnd.github+json"})
+            d = urllib.request.urlopen(req, timeout=30).read()
+            return d if raw else json.loads(d)
+        except Exception as e:  # noqa: BLE001 - retry any transport error
+            last = e
+            if attempt < 3:
+                import time
+                time.sleep(2 * (attempt + 1))
+    raise RuntimeError(f"GET {url} failed after 4 attempts: {last}")
 
 
 def norm(groups):
