@@ -69,16 +69,22 @@ random tokens no rule covers. Run `secretgate rules` for the current list.
 
 ## Release signatures
 
-Each release attaches `<tool>-<tag>.sig.txt`: an EIP-191 (`personal_sign`)
-signature over the pinned file's SHA-256, made with the maintainer key. To
-verify what you downloaded:
+Every release attaches a self-contained signed receipt,
+`secretgate-<tag>-proof.md`: an [ethkey-lite](https://github.com/tianzhicdev/ethkey-lite)
+proof with the pinned `secretgate.py` embedded (base64), signed via EIP-191
+(`personal_sign`) by the maintainer key. One command verifies that the file
+you downloaded came from this repo's maintainer — signature, payload hash, and
+signer checked in one exit code:
 
 ```
-sha256sum secretgate.py                       # must equal the hash in the .sig.txt
-ethkey-lite recover 0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15 "<message in .sig.txt>" "<sig>"
+# download secretgate-<tag>-proof.md from the release page, then:
+python3 ethkey.py verify secretgate-<tag>-proof.md \
+  --require 0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15   # exit 0 == authentic
 ```
 
-Or paste both into the [browser verifier](https://tianzhicdev.github.io/ethkey-lite/verify.html).
+Or paste the receipt into the
+[browser verifier](https://tianzhicdev.github.io/ethkey-lite/receipt.html).
+The legacy flat `<tag>.sig.txt` asset is still attached for compatibility.
 A recovered address equal to the tip address above proves the file came from
 this maintainer. Landing page + docs: https://tianzhicdev.github.io/secretgate/
 
