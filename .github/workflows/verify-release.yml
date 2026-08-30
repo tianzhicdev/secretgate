@@ -1,0 +1,23 @@
+name: verify-release
+on:
+  push:
+    paths:
+      - proofs/**
+  pull_request:
+    paths:
+      - proofs/**
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Every checked-in receipt must be intact, validly signed, and signed
+      # by the maintainer wallet — forever, on every push that touches proofs/.
+      - name: Verify v1.1.0 release receipt
+        uses: tianzhicdev/ethkey-lite/.github/actions/verify-release@v0.6
+        with:
+          receipt: proofs/secretgate-v1.1.0-proof.md
+          require: 0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15
