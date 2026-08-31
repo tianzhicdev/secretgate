@@ -97,6 +97,99 @@ def contents(repo: str, path: str) -> str | None:
     return base64.b64decode(data["content"]).decode("utf-8", "replace")
 
 
+def org_repos() -> list[str]:
+    """Exhaustive owner-repo enumeration (A c128). Search is BLIND at our
+    scale (C c114 + A c128: total_count=0 three ways for data that verifiably
+    exists, rate-limit ruled out), so the consumer universe is LISTED, not
+    indexed. Pagination terminates on a short page (measured: 45, page-2=0)."""
+    names: list[str] = []
+    page = 1
+    while True:
+        url = f"{API}users/tianzhicdev/repos?per_page=100&page={page}"
+        data = json.loads(fetch(url))
+        got = [r["name"] for r in data]
+        names += got
+        if len(got) < 100:
+            return names
+        page += 1
+
+
+def wf_listing(repo: str) -> list[str] | None:
+    """Every workflow filename in a repo, or None on 404 (dir genuinely
+    absent = clean skip). Fetched via contents-at-HEAD with retry semantics
+    identical to contents() — a transport error RAISES, fails closed."""
+    url = f"{API}repos/tianzhicdev/{repo}/contents/.github/workflows?ref=HEAD"
+    try:
+        data = json.loads(fetch(url))
+    except RuntimeError as e:
+        if "HTTP Error 404" in str(e):
+            return None
+        raise
+    return [e["name"] for e in data
+            if e.get("name", "").endswith((".yml", ".yaml"))]
+
+
+def discovery_leg(known: set[str]) -> int:
+    """Unknown-consumer discovery (A c128, C c112 offer + c114 correction):
+    the explicit REQUIRED/TRACKED table is authored duty, but a FLEET CLAIM
+    that trusts the re-pinner's own repo list is where pointer-decay hides.
+    Enumerate every owner repo; each one OUTSIDE the table gets its workflow
+    dir listed and EVERY .yml/.yaml read (no name filter — a filtered probe
+    is an approximation-matcher, my c125 law). A workflow there that
+    executes secretgate-action = RED naming the repo (adjudicate + add,
+    never silently skip). Fail-closed BOTH directions: a table repo missing
+    from the org list is red too. Cross-org forks stay a stated blind spot
+    (watch-condition in REPORT, not silence)."""
+    bad = 0
+    try:
+        orgs = set(org_repos())
+    except RuntimeError as e:
+        print(f"::error::discovery: org enumeration fetch-FAIL ({e}) — "
+              "cannot claim fleet-exhaustiveness; failing closed.",
+              file=sys.stderr)
+        return 1
+    missing = sorted(known - orgs)
+    if missing:
+        print(f"::error::discovery: table repo(s) gone from org list: "
+              f"{missing} — a renamed/deleted consumer is EXACTLY what "
+              "this leg exists to catch.", file=sys.stderr)
+        bad += 1
+    probes = 0
+    for repo in sorted(orgs - known):
+        try:
+            wfs = wf_listing(repo)
+        except RuntimeError as e:
+            print(f"::error::discovery: {repo}: workflow-dir listing dead "
+                  f"({e}) — cannot clear what you cannot read.",
+                  file=sys.stderr)
+            bad += 1
+            continue
+        probes += 1
+        if wfs is None:
+            continue  # no workflows: clean skip, measured not assumed
+        for nm in wfs:
+            try:
+                txt = contents(repo, f".github/workflows/{nm}")
+            except RuntimeError as e:
+                print(f"::error::discovery: {repo}/{nm} fetch-FAIL ({e}) — "
+                      "fail-closed.", file=sys.stderr)
+                bad += 1
+                continue
+            probes += 1
+            if txt is None:
+                continue
+            if "tianzhicdev/secretgate-action" in txt:
+                print(f"::error::discovery: UNKNOWN CONSUMER {repo} executes "
+                      f"secretgate-action in .github/workflows/{nm} — add it "
+                      "to the table + adjudicate, never silently skip.",
+                      file=sys.stderr)
+                bad += 1
+    print(f"ok: discovery leg — org enumerated {len(orgs)} repos, "
+          f"{len(orgs - known)} outside the table probed ({probes} calls), "
+          "zero unknown executors")
+    return bad
+
+
 def main() -> int:
     ref = os.environ.get("PIN_ACTION_REF", "")
     want_sha = os.environ.get("PIN_ACTION_SHA", "")
@@ -172,6 +265,7 @@ def main() -> int:
                           f"{want_sha[:12]}.. — their re-pin duty (c65); "
                           "ref+sha printed as evidence, not verdict.")
 
+    bad += discovery_leg(set(REQUIRED + TRACKED))
     if total_refs == 0:
         print("::error::vacuous census: 0 secretgate-action refs collected "
               "fleet-wide — the rail is blind (worse than none, c27).",
