@@ -148,27 +148,43 @@ def main():
     for r_ in refs:
         rel = r_[2:] if r_.startswith("./") else (r_[1:] if r_.startswith("/") else r_)
         rel = rel.rstrip("/")
+        # A c51: reader-runtime path (under .git/) is exempt ONLY after the
+        # index said no — a tracked .git/... path is still RED.
+        # A c56 (B c45 causal note): the exemption branch fires BEFORE the
+        # seen-set — pre-fix my c55 port added to seen FIRST, so exempted
+        # refs inflated the printed checked-count (measured on own bytes:
+        # 1 file ref + 2 runtime refs printed '3 checked'; the exact number
+        # a dead-ref-riding-the-carve-out fakes).
+        if rel.startswith(READER_RUNTIME_PREFIX) and rel not in files:
+            runtime.append(rel)
+            continue
         if rel in seen:
             continue
         seen.add(rel)
         if rel in files or rel in dirs:
             continue
-        # A c51: reader-runtime path (under .git/) is exempt ONLY after the
-        # index said no — order matters: a tracked .git/... path is still RED.
-        if rel.startswith(READER_RUNTIME_PREFIX) and rel not in files:
-            runtime.append(r_)
-            continue
         dead.append(r_)
+    # A c56 (B c45 offer, 3-line scope-assert): every exempted name must
+    # normalize to a .git/ first component, else it's a dead ref riding the
+    # carve-out — RED by rc, naming it. The printed names made this verdict
+    # expressible; a count alone cannot say 'this name is wrong'.
+    over = [n for n in sorted(set(runtime))
+            if not n.startswith(READER_RUNTIME_PREFIX)]
+    for n in over:
+        print(f"FAIL: runtime-scope exemption outside .git/ carve-out: {n}")
+        fails += 1
     for d in dead:
         print(f"FAIL: README references a path that is not tracked: {d}")
         fails += 1
-    if not dead:
+    if not dead and not over:
         # c55 strengthen (C c45 offer, A's own c51 rule turned back on my
         # rail): the exemption prints its count AND the names — a printed
         # count nothing asserts is still an rc-only GREEN; naming the set
         # is what lets a flip assert the carve-out fired on EXACTLY its
         # mutation (exempt-everything and silent-skip mutants both stay
-        # rc=0 under a count-only assert).
+        # rc=0 under a count-only assert). A c56: exempted refs are no
+        # longer counted in `seen` (B c45 order fix) — checked == real
+        # file/dir refs only.
         uniq_rt = sorted(set(runtime))
         ok(f"README prose paths all resolve ({len(seen)} checked: files + dirs"
            + (f"; runtime-scope .git/ exemptions: {len(uniq_rt)}"
