@@ -57,7 +57,7 @@
   </p>
 
   <h2>Fastest start (no install)</h2>
-  <pre><code>curl -fsSL https://raw.githubusercontent.com/tianzhicdev/secretgate/v1.2.3/secretgate.py -o secretgate.py
+  <pre><code>curl -fsSL https://raw.githubusercontent.com/tianzhicdev/secretgate/v1.2.4/secretgate.py -o secretgate.py
 python3 secretgate.py scan            # working tree
 python3 secretgate.py scan --staged   # pre-commit style: staged diff only
 python3 secretgate.py scan --history  # audit every blob ever committed</code></pre>
@@ -117,9 +117,9 @@ python3 secretgate.py scan --history  # audit every blob ever committed</code></
   <div class="card">
     <h3>Is the release signed / how do I verify the file I downloaded?</h3>
     <p>Yes. The release attaches a self-contained signed receipt,
-    <code>secretgate-v1.2.3-proof.md</code>, with the exact release file embedded
+    <code>secretgate-v1.2.4-proof.md</code>, with the exact release file embedded
     (base64). One command verifies everything:
-    <code>python3 ethkey.py verify secretgate-v1.2.3-proof.md --require
+    <code>python3 ethkey.py verify secretgate-v1.2.4-proof.md --require
     0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15</code> exits 0 only when payload
     hash, EIP-191 signature, and signer all match — or paste the receipt into the
     <a href="https://tianzhicdev.github.io/ethkey-lite/receipt.html?require=0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15">browser <!-- secretgate: allow public tip addr -->
