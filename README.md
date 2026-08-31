@@ -32,7 +32,7 @@ Exit code is 1 when findings exist, 0 when clean — chain it in CI:
 ### As a GitHub Action (recommended)
 
 ```yaml
-- uses: tianzhicdev/secretgate-action@v1.2.3
+- uses: tianzhicdev/secretgate-action@v1.2.4
   with:
     scan: working   # or: staged, history
     fail: "true"    # "false" = annotations only, never fail
@@ -117,7 +117,7 @@ jobs:
   verify:
     uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@v0.8
     with:
-      receipt: proofs/secretgate-v1.2.1-proof.md
+      receipt: proofs/secretgate-v1.2.2-proof.md
       require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"   # quote it: unquoted 0x… is a YAML int
 ```
 
