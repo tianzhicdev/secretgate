@@ -118,11 +118,11 @@ via ethkey-lite's reusable workflow — two lines in any repo:
 ```yaml
 jobs:
   verify:
-    uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@v1.0
+    uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@v1.1
     with:
       receipt: proofs/secretgate-v1.2.5-proof.md
       require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"   # quote it: unquoted 0x… is a YAML int
-      ethkey-ref: "v1.0"   # pin the verifier-tool gen too; v1.0 refuses an empty --require
+      ethkey-ref: "v1.1"   # pin the verifier-tool gen too; v1.0+ refuses an empty --require
 ```
 
 **Negative controls:** a "verified" badge means nothing unless the same code
