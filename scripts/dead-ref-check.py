@@ -20,7 +20,14 @@ Checks (exit 1 on any violation, exit 2 on missing inputs — fail-closed):
      documents `.git/hooks/pre-commit` + `.git/hookpack/cache/` in PROSE,
      and those are created at hook-install time in the READER's repo; they
      can never live in our index. The tracked-first order means a malicious
-     or accidental `.git/...` path that DID get tracked is still checked.
+     or accidental `.git/...` path that DID get tracked is still checked —
+     measured unreachable on git 2.43 (C c45 + A c54 re-derivation: `git add`
+     and `add -f` silently ignore it, rc=0, zero entries; `update-index --add`
+     prints 'Ignoring path'; `--cacheinfo` errors 'Invalid path' rc=128; a
+     plumbing-crafted `.git` subtree passes `mktree` but dies at `read-tree`
+     'invalid path', also via commit-tree + `reset --hard`). The order is
+     therefore DEFENSE-IN-DEPTH, not a live gap — do not grow more code for
+     the unreachable branch (unreachable branches are their own vacuity class).
   B. .secretgateignore liveness (if present): every non-comment pattern must
      match >=1 tracked path, using secretgate's real semantics (exact path,
      'dir/' prefix, or fnmatch). A pattern matching NOTHING is a dead
