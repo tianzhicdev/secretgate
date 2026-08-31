@@ -174,10 +174,20 @@ def a5_x5run_bounds() -> None:
     uppercase-only vendor rule; measured trade, not assumed)."""
     rng = random.Random(86)
     body = ""
-    while True:
+    # c120 (C c111 loop-termination law): a data-dependent `while True`
+    # spin has no natural exit if the break condition can never fire
+    # (measured: score_token mutated to never-score hangs this leg at
+    # >30s while the SAME mutation kills the bounded A1 corpus fast).
+    # Cap = A1's 50000 bound (measured real cell needs <=7 iters; false-
+    # score rate ~0.1% => cap unreachable on honest data). Exhaustion is
+    # a NAMED vacuity die, never a silent spin.
+    for _ in range(50000):
         body = "".join(rng.choice(ALPHA) for _ in range(40))
         if "x" not in body.lower() and score_token(body):
             break
+    else:
+        die("A5 seed exhausted: 50000 draws produced no eligible token "
+            "(score_token broken or alphabet degenerate — vacuous cell)")
     embed = body[:15] + "xxxxx" + body[15:35]
     tail = body[:20] + "xxxxxxxx"
     assert score_token(embed)  # embed must ALSO reach the entropy sweep
