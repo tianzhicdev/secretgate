@@ -69,7 +69,8 @@ DOC_ALLOW = frozenset({"README.md", "SECURITY.md"})
 
 
 def tracked_files():
-    r = subprocess.run(["git", "ls-files"], capture_output=True, text=True)
+    r = subprocess.run(["git", "ls-files"], capture_output=True, text=True,
+                       timeout=60)
     if r.returncode != 0:
         print("FAIL: git ls-files failed: " + r.stderr.strip())
         sys.exit(2)
@@ -202,7 +203,7 @@ def main():
         # child path — the exact shape `git add -A` would stage.
         probe = name + ".c55-probe" if name.endswith("/") else name
         pr = subprocess.run(["git", "check-ignore", "--no-index", "-q", probe],
-                            capture_output=True, text=True)
+                            capture_output=True, text=True, timeout=60)
         if pr.returncode == 1:
             uncovered.append(probe)
         elif pr.returncode > 1:

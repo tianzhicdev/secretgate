@@ -61,7 +61,8 @@ def run_step(body, tmp, scan, fail, sg, action_path, json_out, summary, out):
         "GITHUB_ACTION_PATH": action_path,
     })
     return subprocess.run(["bash", "-c", body], env=env,
-                          capture_output=True, text=True, cwd=tmp)
+                          capture_output=True, text=True, cwd=tmp,
+                          timeout=120)
 
 
 def main():

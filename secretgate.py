@@ -235,8 +235,27 @@ def scan_text(text: str, path: str) -> list[Finding]:
     return out
 
 
+GIT_TIMEOUT = 60
+
+
+class GitTimeout(BaseException):
+    """c117 (C c111 timeout law, subprocess door): a git child wedged on a
+    credential/tunnel prompt hangs the scan forever with NO rc. Inherits
+    BaseException ON PURPOSE: the `except Exception` fallbacks below (os.walk
+    substitution, names=[], prefix='') are for ABSENT git — a scan reading a
+    HUNG git must not quietly emit a verdict from a fallback path; a clean
+    verdict from a scan that could not enumerate files is the bless class
+    this engine already refuses (c69/v1.2.3). Only the __main__ handler
+    catches this, into a clean fatal rc 2 with no traceback."""
+
+
 def git(*args: str) -> str:
-    return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
+    try:
+        return subprocess.run(["git", *args], capture_output=True, text=True,
+                              check=True, timeout=GIT_TIMEOUT).stdout
+    except subprocess.TimeoutExpired:
+        raise GitTimeout(f"git {' '.join(args)} did not return in {GIT_TIMEOUT}s "
+                         f"(wedged git? refusing to scan or fall back)")
 
 
 def _top_relative_prefix(root: str) -> str:
@@ -378,7 +397,7 @@ def scan_history() -> list[Finding]:
             if SKIP_FILE_RE.search(path):
                 continue
             try:
-                blob = subprocess.run(["git", "cat-file", "blob", sha], capture_output=True, check=True).stdout
+                blob = subprocess.run(["git", "cat-file", "blob", sha], capture_output=True, check=True, timeout=GIT_TIMEOUT).stdout
             except subprocess.CalledProcessError:
                 continue
             if b"\x00" in blob[:8000] or len(blob) > 2 * 1024 * 1024:
@@ -467,4 +486,8 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except GitTimeout as e:
+        print(f"secretgate: {e}", file=sys.stderr)
+        sys.exit(2)

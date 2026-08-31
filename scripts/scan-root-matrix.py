@@ -54,7 +54,8 @@ AKIA = "AKIA" + "1234567890ABCDEF"
 
 def git(repo, *args):
     subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
-                    *args], cwd=repo, check=True, capture_output=True)
+                    *args], cwd=repo, check=True, capture_output=True,
+                   timeout=60)
 
 
 def make_repo(tmp):
@@ -78,7 +79,7 @@ def plant(tmp, rel, allow=False):
 
 def run(tmp, *args):
     r = subprocess.run([sys.executable, ENGINE, "scan", *args],
-                       cwd=tmp, capture_output=True, text=True)
+                       cwd=tmp, capture_output=True, text=True, timeout=120)
     return r.returncode, r.stdout + r.stderr
 
 
@@ -137,7 +138,7 @@ def m6(tmp):
     outside = tempfile.mkdtemp(prefix="sg-outside-")
     plant(outside, "a.py")
     r = subprocess.run([sys.executable, ENGINE, "scan", outside],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, timeout=120)
     assert r.returncode == 1, f"walk fallback rc={r.returncode}: {r.stdout}"
 
 
@@ -178,7 +179,7 @@ def m10(tmp):
     outside = tempfile.mkdtemp(prefix="sg-outside-file-")
     plant(outside, "a.py")
     r = subprocess.run([sys.executable, ENGINE, "scan", os.path.join(outside, "a.py")],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, timeout=120)
     assert r.returncode == 1, f"FALSE CLEAN out-of-repo file-arg: rc={r.returncode} {r.stdout}"
 
 
@@ -229,6 +230,52 @@ def m14(tmp):
     os.remove(os.path.join(tmp, ".secretgateignore"))
     rc2, _ = run(tmp, "sub")
     assert rc2 == 1, f"without ignore file the dir scan must flag: rc={rc2}"
+
+
+@case("W15 wedged-git hang door closed (GitTimeout, no fallback swallow)")
+def w15(tmp):
+    """c117 (C c111 timeout law, subprocess door): git() must carry
+    timeout= and the resulting GitTimeout must ESCAPE the `except
+    Exception` git-absent fallbacks (BaseException by design) — a scan
+    that fell back to os.walk because git HUNG (not absent) could emit a
+    bless-class clean verdict. Runs in-process with GIT_TIMEOUT=2s against
+    a stub git that sleeps: fixture under mkdtemp (hygiene rule), never in
+    the checkout."""
+    import importlib.util
+    saved_path = os.environ["PATH"]
+    stub = os.path.join(tmp, "stub")
+    os.makedirs(stub, exist_ok=True)
+    stub_git = os.path.join(stub, "git")
+    with open(stub_git, "w") as f:
+        f.write("#!/bin/sh\nexec sleep 30\n")
+    os.chmod(stub_git, 0o755)
+    try:
+        spec = importlib.util.spec_from_file_location("sg_w15", ENGINE)
+        assert spec and spec.loader, f"cannot load engine: {ENGINE}"
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        assert hasattr(mod, "GitTimeout"), "engine lost GitTimeout (c117)"
+        assert issubclass(mod.GitTimeout, BaseException) and \
+            not issubclass(mod.GitTimeout, Exception), \
+            "GitTimeout polarity broken: must be BaseException-not-Exception " \
+            "so git-absent fallbacks cannot swallow a hung git"
+        mod.GIT_TIMEOUT = 2
+        os.environ["PATH"] = stub + os.pathsep + saved_path
+        try:
+            mod.git("rev-parse", "--is-inside-work-tree")
+            raise AssertionError("wedged git returned normally: timeout= gone?")
+        except mod.GitTimeout:
+            pass  # expected: timeout fired, named fatal, no traceback
+        # the polarity in action: an Exception-handler (like _inside_repo)
+        # must NOT catch it — call through that surface too:
+        try:
+            mod._inside_repo(tmp)
+            raise AssertionError("GitTimeout was swallowed by an "
+                                 "except-Exception fallback (bless door open)")
+        except mod.GitTimeout:
+            pass
+    finally:
+        os.environ["PATH"] = saved_path
 
 
 def main() -> int:

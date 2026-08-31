@@ -52,7 +52,8 @@ def load_engine(path, name):
 
 def old_engine_bytes():
     return subprocess.run(["git", "-C", ROOT, "show", f"{PINNED_TAG}:secretgate.py"],
-                          capture_output=True, text=True, check=True).stdout
+                          capture_output=True, text=True, check=True,
+                          timeout=60).stdout
 
 
 old_src = old_engine_bytes()

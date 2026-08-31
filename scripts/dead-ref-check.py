@@ -78,7 +78,8 @@ def ok(msg):
 
 
 def tracked_files():
-    r = subprocess.run(["git", "ls-files"], capture_output=True, text=True)
+    r = subprocess.run(["git", "ls-files"], capture_output=True, text=True,
+                       timeout=60)
     if r.returncode != 0:
         die("git ls-files failed: " + r.stderr.strip(), 2)
     files = r.stdout.split()

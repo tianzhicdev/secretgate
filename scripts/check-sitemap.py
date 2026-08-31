@@ -73,7 +73,7 @@ def main():
 
     git = subprocess.run(
         ["git", "log", "-1", "--format=%cd", "--date=short", "--", *PAGE_PATHS],
-        cwd=root, capture_output=True, text=True,
+        cwd=root, capture_output=True, text=True, timeout=60,
     )
     if git.returncode != 0:
         die(f"git log failed: {git.stderr.strip()}")
