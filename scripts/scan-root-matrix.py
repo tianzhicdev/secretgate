@@ -29,6 +29,11 @@ RUNTIME (c25 self-scan rule: zero static real-format tokens in this repo):
   M11 scan FILE  clean file           -> rc 0   (non-vacuity on the file leg)
   M12 scan MISSING path               -> rc 2, output never says 'clean'
                                        (old engine: rc 0 FALSE CLEAN)
+  M13 FILE mode + .secretgateignore   -> ignored file rc 0, and RED again
+                                       once the ignore line is removed
+                                       (non-vacuity; c69-sibling self-catch)
+  M14 scan sub DIR honors repo-top    -> rc 0 with 'sub/' ignored, RED when
+      ignore patterns (frame fix)        the pattern is removed (v1.2.3)
 
 Runs the engine via $SECRETGATE (CI sets it to the repo's own secretgate.py);
 falling back to the repo root. Exits 1 naming any failed case.
@@ -190,6 +195,40 @@ def m12(tmp):
     rc, out = run(tmp, "no-such-path.txt")
     assert rc == 2, f"missing path must exit 2, got rc={rc}: {out}"
     assert "clean" not in out, f"missing path must never print 'clean': {out}"
+
+
+@case("M13 .secretgateignore loads in FILE mode (c69 sibling, self-caught)")
+def m13(tmp):
+    # Dogfood caught this mid-release: v1.2.3-tag-0 file-mode made
+    # _ignore_root's own `git -C <file>` raise -> ignore file silently never
+    # loaded -> `scan proofs/x-proof.md` printed 168 findings dir-mode
+    # ignores = false RED on an ALLOWED file (over-broad inverse of c69).
+    with open(os.path.join(tmp, ".secretgateignore"), "w") as f:
+        f.write("sub/\n")
+    plant(tmp, "sub/plant.py")
+    rc, out = run(tmp, os.path.join("sub", "plant.py"))
+    assert rc == 0, f"ignored file must stay rc0 in file-mode: rc={rc} {out}"
+    # non-vacuity: same file, ignore removed -> must go RED (the file-mode
+    # scan really is scanning; rc0 above is a verdict, not invisibility)
+    os.remove(os.path.join(tmp, ".secretgateignore"))
+    rc2, _ = run(tmp, os.path.join("sub", "plant.py"))
+    assert rc2 == 1, f"without ignore file the plant must flag: rc={rc2}"
+
+
+@case("M14 scan sub DIR honors repo-top ignore patterns (frame fix)")
+def m14(tmp):
+    # The 1098-findings shape: 'sub/' in the (top-level) ignore file +
+    # `scan sub` = dir mode enumerated scan-root-relative names that never
+    # matched the top-relative pattern. v1.2.3 prefixes names for the match.
+    with open(os.path.join(tmp, ".secretgateignore"), "w") as f:
+        f.write("sub/\n")
+    plant(tmp, "sub/plant.py")
+    rc, out = run(tmp, "sub")
+    assert rc == 0, f"dir-mode subdir scan must honor 'sub/': rc={rc} {out}"
+    # non-vacuity: pattern removed -> same dir scan goes RED
+    os.remove(os.path.join(tmp, ".secretgateignore"))
+    rc2, _ = run(tmp, "sub")
+    assert rc2 == 1, f"without ignore file the dir scan must flag: rc={rc2}"
 
 
 def main() -> int:

@@ -111,6 +111,12 @@ def is_ignored(rel_path: str, patterns: list[str]) -> bool:
 
 def _ignore_root(root: str = ".") -> str:
     """Where to look for .secretgateignore: repo top-level if in a git repo."""
+    # v1.2.3: a FILE arg — dirname FIRST, else `git -C <file>` raises here too
+    # (same raise-shape as the c69 defect, one function down) and the ignore
+    # file silently never loads: `scan proofs/x-proof.md` printed 168 findings
+    # that dir mode correctly ignores. Measured, then pinned (matrix M13).
+    if os.path.isfile(root):
+        root = os.path.dirname(root) or "."
     try:
         top = git("-C", root, "rev-parse", "--show-toplevel").strip()
         if top:
@@ -186,6 +192,22 @@ def git(*args: str) -> str:
     return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
 
 
+def _top_relative_prefix(root: str) -> str:
+    """'sub/deeper/' when root sits that far below the repo top ('' at top
+    or outside a repo): ls-files -C root gives names relative to the SCAN
+    ROOT, but .secretgateignore patterns are matched repo-top-relative (the
+    file loads from _ignore_root), so the two frames must agree before
+    is_ignored() sees them (v1.2.3 false-RED class)."""
+    try:
+        top = git("-C", root, "rev-parse", "--show-toplevel").strip()
+        rabs = os.path.abspath(root)
+        if top and rabs != top and rabs.startswith(top + os.sep):
+            return os.path.relpath(rabs, top).replace(os.sep, "/") + "/"
+    except Exception:
+        pass
+    return ""
+
+
 def files_working_tree(root: str):
     if os.path.isfile(root):
         # v1.2.3 (C c69 defect #2): a FILE arg previously fell into both
@@ -210,10 +232,17 @@ def files_working_tree(root: str):
             names = tracked + untracked
         except subprocess.CalledProcessError:
             names = []
+        # v1.2.3: .secretgateignore patterns are REPO-TOP-relative, but -C
+        # made the names above scan-root-relative — `scan sub` with 'sub/' in
+        # the ignore file false-RED'd every ignored file (over-broad inverse
+        # of the c69 class; measured: scan proofs/ printed 1098 findings dir
+        # mode ignores). Prefix names back to top-relative for the MATCH
+        # only; the isfile join stays scan-root-relative (the c31 fix).
+        ignore_prefix = _top_relative_prefix(root)
         for n in names:
             p = os.path.join(root, n) if root != "." else n
             if os.path.isfile(p):
-                yield n, p
+                yield (ignore_prefix + n if ignore_prefix else n), p
     else:
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [d for d in dirnames if not SKIP_FILE_RE.search(os.path.join(dirpath, d) + "/")]
