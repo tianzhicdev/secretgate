@@ -38,7 +38,7 @@ not a clean one: treat it as red in CI, never as "no findings."
 ### As a GitHub Action (recommended)
 
 ```yaml
-- uses: tianzhicdev/secretgate-action@db7a8e2dbf0ac96d8ad8ef0fb0532852c9a2ee90  # v1.2.8 tag commit (content-addressed, A c113/c115)
+- uses: tianzhicdev/secretgate-action@f5d399b2b232241af124de0f21ecad9d23e27cf5  # v1.2.9 tag commit (content-addressed, A c113/c115/c126)
   with:
     scan: working   # or: staged, history
     fail: "true"    # "false" = annotations only, never fail
@@ -137,7 +137,7 @@ jobs:
   verify:
     uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@2faab7ce4063c3e74190a6d33b9d0f9af7a66586  # v1.1 tag commit (content-addressed, A c113)
     with:
-      receipt: proofs/secretgate-v1.2.6-proof.md
+      receipt: proofs/secretgate-v1.2.7-proof.md
       require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"   # quote it: unquoted 0x… is a YAML int
       ethkey-ref: "v1.1"   # pin the verifier-tool gen too; v1.0+ refuses an empty --require
 ```
