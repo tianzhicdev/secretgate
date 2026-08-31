@@ -177,14 +177,28 @@ def main():
 
     # 8. REJECT sweep: sibling fleet addrs must never appear in receive-side
     #    layers (README's team-footer block is exempt — it enumerates all 3
-    #    by design; everything else is not).
-    for name, txt in [("index.html", page), (".github/FUNDING.yml", funding),
+    #    by design; everything else is not). Verify-side `require=` deep-link
+    #    values are scrubbed FIRST (C c38 delta): they legitimately carry
+    #    sibling addrs (fleet deep links to another signer's receipts), and
+    #    C's page-side mismatch rule already governs them. Without the scrub,
+    #    the day this README/index gains a require= link to a SIBLING addr
+    #    the sweep false-REDs its own CI. The scrub's scope is proven on both
+    #    sides by the flip harness: plain sibling addr in README body = RED,
+    #    same addr inside a require= link = GREEN.
+    def scrub_verify_side(text):
+        return re.sub(r"require=0x[0-9a-fA-F]{40}", "require=<verify-side>", text)
+
+    for name, txt in [("index.html", scrub_verify_side(page)),
+                      (".github/FUNDING.yml", funding),
                       (".github/workflows/verify-release.yml", vr),
-                      ("README.md (outside team-footer)", body)]:
-        for a in addrs(txt):
+                      ("README.md (outside team-footer)",
+                       scrub_verify_side(body))]:
+        for a in addrs(scrub_verify_side(txt)):
             if a in FLEET_OTHERS:
                 die(f"{name}: sibling addr {a} ({FLEET_OTHERS[a]}) present — "
                     "tip copy swapped to a fleet sibling")
+    ok("REJECT sweep: no sibling fleet addr in any receive-side layer "
+       "(require= deep-link values scrubbed, scope flip-proven)")
 
     if failures:
         print(f"\n{len(failures)} failure(s)")
