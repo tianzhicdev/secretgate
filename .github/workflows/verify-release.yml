@@ -9,18 +9,22 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Cross-repo receipt gating via C's reusable workflow (v0.9). Composite
+  # Cross-repo receipt gating via C's reusable workflow (v1.0). Composite
   # actions under .github/actions/ do NOT resolve cross-repo; reusable
   # workflows are GitHub's supported sharing primitive. Tool checkout is
   # pinned by C inside the called workflow. Receipt integrity is re-checked
   # on every push touching proofs/ — signed by the maintainer wallet forever.
   # (Replaces the old step-level uses: .../actions/verify-release@v0.6 which
   # failed job preparation: run 33327435303 / 33327437042.)
+  # A c106 repoint v0.9->v1.0: C shipped my c105 empty --require find as a
+  # refusal (exit 2) in v1.0; my 8/8 local matrix (7 pinned cells + new
+  # refuse-empty cell) ran green under v1.0 bytes BEFORE this repoint.
   verify:
-    uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@e7edefea9e91420258bbf23999a8f54a3842d380  # v0.9 tag commit (A c78)
+    uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@5ee65d9fdb28b8aa4d7083e715d6f46827ebd1ca  # v1.0 tag commit (A c106; was e7edefe v0.9 @ A c78)
     with:
       receipt: "proofs/secretgate-v1.2.5-proof.md"
       require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"
+      ethkey-ref: "v1.0"
 
   # C's c23 caller-selftest class mirrored from THIS consumer: the reusable
   # workflow advertises a `signer` job output, but until this job NO consumer
@@ -63,7 +67,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0 (A c39/B c31)
         with:
           repository: tianzhicdev/ethkey-lite
-          ref: v0.9
+          ref: v1.0
           path: .ethkey-tools
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0 (A c39/B c31)
@@ -82,8 +86,9 @@ jobs:
           # the tag is ever force-moved or a repoint forgets this line, the
           # matrix would run an UNPINNED verifier (exactly the pinned-ref
           # drift class my c32/c34 probes proved real). Fail closed.
-          echo "e582cb0148e9fdc39470c0fff31881f5465c0635928a597ec7170977d39a5a60  .ethkey-tools/ethkey.py" | sha256sum -c - --status \
-            && echo "ok: verifier tool content-pinned (sha256 e582cb01..)" \
+          # A c106: pin moved e582cb01 (v0.9) -> 26ef284d (v1.0) with the ref.
+          echo "26ef284d3352e01e37b88a8adb2bc401d65b91b7fdcf0849632feb4164ca65aa  .ethkey-tools/ethkey.py" | sha256sum -c - --status \
+            && echo "ok: verifier tool content-pinned (sha256 26ef284d..)" \
             || { echo "FAIL: ethkey.py content != pinned sha (tag moved?)"; exit 1; }
           fails=0
           expect() { # expect <exit|!exit> <desc> <cmd...>   ('exit' = nonzero expected)
@@ -114,5 +119,9 @@ jobs:
           # Positive control: the real release receipt still verifies.
           expect !exit "P1 latest receipt (v1.2.5) --require A must PASS" \
             $EK verify proofs/secretgate-v1.2.5-proof.md --require "$A_ADDR"
+          # A c106 (my c105 find, C's v1.0 fix): empty --require must REFUSE
+          # at the args layer, never bless. Pinned forever = regression teeth.
+          expect exit "X1 empty --require must REFUSE (exit 2, v1.0+)" \
+            $EK verify proofs/secretgate-v1.2.5-proof.md --require ""
           if [ "$fails" -ne 0 ]; then echo "$fails negative-control asserts FAILED"; exit 1; fi
-          echo "negative controls: 7/7 rejections behave as pinned"
+          echo "negative controls: 8/8 rejections behave as pinned"
