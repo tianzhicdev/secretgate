@@ -13,9 +13,15 @@ Checks (all must hold or exit 1):
   2. EXACTLY one <link rel="canonical">, href == SITE_URL.
   3. EXACTLY one <link rel="icon"> of type image/svg+xml with a
      data:image/svg+xml URI href (B c20 entropy-clean pattern).
-  4. og: properties — type(website), site_name, title, description, url —
-     each EXACTLY once; url == SITE_URL.
-  5. twitter: tags — card(summary), title, description — each EXACTLY once.
+  4. og: properties — type(website), site_name, title, description, url,
+     image, image:width, image:height — each EXACTLY once; url == SITE_URL;
+     image == SITE_URL + 'og-image.png' (B c21 literal shape: the tag and
+     the generator path can never drift silently); width/height == 1200/630.
+  5. twitter: tags — card(summary_large_image), title, description, image —
+     each EXACTLY once; twitter:image == og:image (one card image, one URL).
+  5b. the committed og-image.png EXISTS, is a real PNG, and its IHDR says
+     1200x630 (stdlib struct parse, no Pillow): a page that promises a card
+     with a 404 behind it is the fail-open social surface (c44).
   6. og:title == <title> text; og:description == meta[name=description]
      content; twitter:title/description mirror the same pair (pairwise:
      the crawl/social signals can never disagree silently).
@@ -103,19 +109,22 @@ def main():
         die("icon link must be type image/svg+xml with a data: URI href")
     ok("exactly 1 data-URI SVG favicon")
 
-    # 4/5. og: + twitter: each EXACTLY once
+    # 4/5. og: + twitter: each EXACTLY once (c44: + the image trio +
+    # twitter:image, B c21 shape)
     og = {p: count_meta(c.tags, "property", p)
           for p in ("og:type", "og:site_name", "og:title",
-                    "og:description", "og:url")}
+                    "og:description", "og:url", "og:image",
+                    "og:image:width", "og:image:height")}
     for p, v in og.items():
         if len(v) != 1:
             die(f"expected exactly 1 {p}, found {len(v)}")
     tw = {p: count_meta(c.tags, "name", p)
-          for p in ("twitter:card", "twitter:title", "twitter:description")}
+          for p in ("twitter:card", "twitter:title", "twitter:description",
+                    "twitter:image")}
     for p, v in tw.items():
         if len(v) != 1:
             die(f"expected exactly 1 {p}, found {len(v)}")
-    ok("og:* x5 and twitter:* x3 each present EXACTLY once")
+    ok("og:* x8 and twitter:* x4 each present EXACTLY once")
 
     if og["og:type"][0] != "website":
         die(f"og:type is {og['og:type'][0]!r}, expected 'website'")
@@ -123,9 +132,40 @@ def main():
         die(f"og:site_name is {og['og:site_name'][0]!r}, expected {SITE_NAME!r}")
     if og["og:url"][0] != SITE_URL:
         die(f"og:url is {og['og:url'][0]!r}, expected {SITE_URL!r}")
-    if tw["twitter:card"][0] != "summary":
-        die(f"twitter:card is {tw['twitter:card'][0]!r}, expected 'summary'")
-    ok("og:type=website, og:site_name, og:url==SITE_URL, twitter:card=summary")
+    if tw["twitter:card"][0] != "summary_large_image":
+        die(f"twitter:card is {tw['twitter:card'][0]!r}, "
+            "expected 'summary_large_image'")
+    ok("og:type=website, og:site_name, og:url==SITE_URL, "
+       "twitter:card=summary_large_image")
+
+    # 4b/5b (c44): the share card — tag literal == SITE_URL + fixed name
+    # (B c21 literal-vs-const pin), twitter mirrors og exactly, and the
+    # committed PNG exists with the dimensions the tags claim. A page that
+    # advertises a card whose image 404s is the fail-open social surface.
+    expected_img = SITE_URL + "og-image.png"
+    if og["og:image"][0] != expected_img:
+        die(f"og:image is {og['og:image'][0]!r}, expected {expected_img!r}")
+    if tw["twitter:image"][0] != expected_img:
+        die(f"twitter:image is {tw['twitter:image'][0]!r}, "
+            "expected to mirror og:image exactly")
+    if og["og:image:width"][0] != "1200" or og["og:image:height"][0] != "630":
+        die(f"og:image dimensions are "
+            f"{og['og:image:width'][0]}x{og['og:image:height'][0]}, "
+            "expected 1200x630")
+    png = root / "og-image.png"
+    if not png.is_file():
+        die("og-image.png is advertised by the page but not committed "
+            "(build it: python3 scripts/build-og-image.py)")
+    head = png.read_bytes()[:24]
+    if head[:8] != b"\x89PNG\r\n\x1a\n" or head[12:16] != b"IHDR":
+        die("og-image.png is not a valid PNG (signature/IHDR missing)")
+    import struct
+    w, h = struct.unpack(">II", head[16:24])
+    if (w, h) != (1200, 630):
+        die(f"og-image.png IHDR is {w}x{h}, expected 1200x630 "
+            "(tags and pixels must agree)")
+    ok(f"og:image/twitter:image == {expected_img}; committed PNG IHDR "
+       f"{w}x{h} matches the advertised dimensions")
 
     # 6. pairwise consistency with the source-of-truth tags
     desc = count_meta(c.tags, "name", "description")
