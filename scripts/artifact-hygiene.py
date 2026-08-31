@@ -215,7 +215,14 @@ def main():
               f"(catch-without-prevent, B c44 class): {u}")
         fails += 1
     if not uncovered:
-        print(f"OK: catch+prevent — every leg-A/leg-D name is ignored: {prevent}")
+        # N/N denominator (B c46 delta): the covered count is printed AS A
+        # NUMBER, not just as a set to eyeball — a mutant that shrinks the
+        # union (e.g. leg-D derivation breaking) moves the printed count,
+        # so the assertable quantity exists without regex-over-set work.
+        # B's shape 'N/N catch+prevent names ignored'; tail kept verbatim
+        # so c57's printed_covered parser rides the same line unchanged.
+        n = len(prevent)
+        print(f"OK: {n}/{n} catch+prevent — every leg-A/leg-D name is ignored: {prevent}")
 
     if fails:
         print(f"artifact-hygiene: {fails} violation(s)")
