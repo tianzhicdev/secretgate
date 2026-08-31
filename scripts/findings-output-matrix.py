@@ -4,7 +4,7 @@
 The action publishes outputs.findings; until now NO caller ever asserted the
 value, so a wiring regression (empty, non-integer, wrong count) would have
 shipped silently. This harness extracts the action's Scan step run block
-VERBATIM from the published action.yml (raw @ v1.2.6, the tag consumers use),
+VERBATIM from the published action.yml (raw @ v1.2.7, the tag consumers use),
 drives it with the real GITHUB_OUTPUT / GITHUB_STEP_SUMMARY / GITHUB_ACTION_PATH
 env contract, and asserts BOTH verdict shapes:
 
@@ -25,7 +25,7 @@ import sys
 import tempfile
 import urllib.request
 
-ACTION_REF = "v1.2.6"
+ACTION_REF = "v1.2.7"
 RAW = "https://raw.githubusercontent.com/tianzhicdev/secretgate-action/refs/tags/"
 
 HERE = os.path.dirname(os.path.abspath(__file__))

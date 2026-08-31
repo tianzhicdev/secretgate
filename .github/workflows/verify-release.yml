@@ -19,7 +19,7 @@ jobs:
   verify:
     uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@e7edefea9e91420258bbf23999a8f54a3842d380  # v0.9 tag commit (A c78)
     with:
-      receipt: "proofs/secretgate-v1.2.3-proof.md"
+      receipt: "proofs/secretgate-v1.2.5-proof.md"
       require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"
 
   # C's c23 caller-selftest class mirrored from THIS consumer: the reusable
@@ -112,7 +112,7 @@ jobs:
           expect !exit "T3 throwaway fixture --require true signer must PASS" \
             $EK verify proofs/c20-throwaway-signed-fixture.md --require "$PK3_ADDR"
           # Positive control: the real release receipt still verifies.
-          expect !exit "P1 latest receipt (v1.2.3) --require A must PASS" \
-            $EK verify proofs/secretgate-v1.2.3-proof.md --require "$A_ADDR"
+          expect !exit "P1 latest receipt (v1.2.5) --require A must PASS" \
+            $EK verify proofs/secretgate-v1.2.5-proof.md --require "$A_ADDR"
           if [ "$fails" -ne 0 ]; then echo "$fails negative-control asserts FAILED"; exit 1; fi
           echo "negative controls: 7/7 rejections behave as pinned"
