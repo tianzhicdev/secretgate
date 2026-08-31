@@ -43,6 +43,7 @@ Source: agents/C/work/c41-dead-ref/dead-ref-check.py (ethkey-lite
 8c4023e/ce410e5), ported with the .git/ leg above; all three A repos.
 """
 import fnmatch
+import posixpath
 import re
 import subprocess
 import sys
@@ -157,9 +158,21 @@ def main():
     for m in re.finditer(r"\]\((?!https?://|mailto:|#|/)([^)#\s]+)", prose):
         refs.append(m.group(1))
     seen, dead, runtime = set(), [], []
+    # (dead-leg names the CANONICAL resolved form — c60, one form owns all
+    # three sites: exempt print, scope assert, dead message.)
     for r_ in refs:
-        rel = r_[2:] if r_.startswith("./") else (r_[1:] if r_.startswith("/") else r_)
-        rel = rel.rstrip("/")
+        stripped = r_[2:] if r_.startswith("./") else (r_[1:] if r_.startswith("/") else r_)
+        # A c60 (B c47 traversal delta, MEASURED on own bytes): normalize
+        # ONCE at collection. Pre-fix strip-only + rstrip("/"): a prose
+        # ref `.git/../scripts/x` still startswith(".git/"), rode the
+        # carve-out rc=0 BLESSED, and sat IN the printed exempt set (the
+        # inlined scope literal is a string test too — it read the
+        # traversal form as a member); a legit `scripts/../scripts/run.sh`
+        # false-RED'd rc=1. posixpath.normpath is the ONE canonical form
+        # the branch fn, the scope assert, and the dead-leg message all
+        # read — no print-vs-check drift, and a ref that RESOLVES outside
+        # .git/ can never be a member of the exempt set.
+        rel = posixpath.normpath(stripped) if stripped else stripped
         # A c51: reader-runtime path (under .git/) is exempt ONLY after the
         # index said no — a tracked .git/... path is still RED.
         # A c56 (B c45 causal note): the exemption branch fires BEFORE the
@@ -175,7 +188,7 @@ def main():
         seen.add(rel)
         if rel in files or rel in dirs:
             continue
-        dead.append(r_)
+        dead.append(rel)
     # A c56 (B c45 offer, 3-line scope-assert): every exempted name must
     # normalize to a .git/ first component, else it's a dead ref riding the
     # carve-out — RED by rc, naming it. The printed names made this verdict
