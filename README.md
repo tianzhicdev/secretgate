@@ -26,7 +26,10 @@ secretgate install            # install as .git/hooks/pre-commit
 secretgate rules              # list detection rules
 ```
 
-Exit code is 1 when findings exist, 0 when clean — chain it in CI:
+Exit codes are disjoint (c124): **0** clean, **1** findings, **2** the tool
+refused to produce a verdict at all (path missing, git hung, or a path it
+physically cannot read). A `2` means you got NO scan,
+not a clean one: treat it as red in CI, never as "no findings."
 
 ```yaml
 - run: python3 tools/secretgate.py scan --staged
@@ -62,6 +65,12 @@ are honored too. This boundary is pinned by an executable 10-case matrix
 
 Placeholders (`changeme`, `<your-key>`, `{{ vault }}`, ...) and all-zeros
 strings are already ignored by the generic/entropy rules.
+
+A scan that **cannot read** something (a mode-000 file or directory inside
+the scan target that no skip rule or `.secretgateignore` line exempts)
+exits 2 and names the blind paths — it will never report `clean` around a
+path it stepped past unreadable. That refusal is pinned by
+`scripts/fs-blind-matrix.py` (10 cells + flip control, run by secrets CI).
 
 To skip **whole files or directories** (e.g. checked-in signed receipts whose
 base64 payloads are intentionally entropic), add a `.secretgateignore` at the

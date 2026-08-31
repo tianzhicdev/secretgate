@@ -29,6 +29,7 @@ import argparse
 import math
 import os
 import re
+import stat as statmod
 import subprocess
 import sys
 from collections import namedtuple
@@ -238,6 +239,19 @@ def scan_text(text: str, path: str) -> list[Finding]:
 GIT_TIMEOUT = 60
 
 
+class ScanBlind(Exception):
+    """c124 (C c116 fs-shape law ported to the engine's OWN walk): a path the
+    scan physically cannot read must NEVER be blessed by absence. Three doors
+    measured open pre-fix (c124 EXPECT.md D0-D2):
+    (a) os.walk silently swallows the descend PermissionError on a mode-000
+    DIR (C's exact rglob finding, same class); (b/c) ls-files NAMES a mode-000
+    file, isfile() is True (stat works), then read_text's blanket
+    `except OSError: return None` conflated PermissionError with the
+    LEGITIMATE skips (binary/2MB-too-large/dangling-symlink) -> FALSE CLEAN.
+    Carries the offending paths. rc map stays DISJOINT (C c116): 0 clean /
+    1 findings-verdict / 2 tool-die (nonexistent path, hung git, blindness)."""
+
+
 class GitTimeout(BaseException):
     """c117 (C c111 timeout law, subprocess door): a git child wedged on a
     credential/tunnel prompt hangs the scan forever with NO rc. Inherits
@@ -334,13 +348,72 @@ def read_text(p: str) -> str | None:
         if b"\x00" in data[:8000]:
             return None
         return data.decode("utf-8", errors="replace")
+    except FileNotFoundError:
+        return None  # raced-away/dangling symlink: NOT a blindness (E-shape)
+    except PermissionError as e:
+        # c124: unreadable-named is BLINDNESS, not a skip. Belt to the
+        # pre-scan audit below (TOCTOU: chmod can land between audit and
+        # read). Binary/too-large/dangling stay None = legitimate skips.
+        raise ScanBlind([f"{p} ({e.__class__.__name__})"]) from None
     except OSError:
-        return None
+        return None  # dangling-symlink ENOENT/ENOTDIR class: not a permission verdict
+
+
+def audit_blind(root: str, ignore_pats: list[str]) -> None:
+    """c124: walk the SAME universe the scan is about to read and name every
+    path it will silently step past. Two blindness axes (C c116, measured on
+    this engine D0-D2): (1) os.walk's SILENT descend-loss on a mode-000 dir —
+    fixed by onerror, which turns swallowed PermissionErrors into data;
+    (2) a NAMED-but-unreadable file — os.walk yields entries via readdir
+    without needing read access on them, and the git branch reads names from
+    ls-files, so both see what open() cannot. A blind path that SKIP_FILE_RE
+    or .secretgateignore already exempts is an EXPLICIT verdict (E4/E5), not
+    blindness — the audit honors the same filters as the scan, then raises
+    ScanBlind naming the rest. Raises; never prints (caller owns output)."""
+    blind: list[str] = []
+
+    def _blind_dir(path: str) -> bool:
+        d = path if path.endswith("/") else path + "/"
+        return SKIP_FILE_RE.search(d) is not None or is_ignored(d, ignore_pats)
+
+    def _blind_file(path: str) -> bool:
+        return SKIP_FILE_RE.search(path) is not None or is_ignored(path, ignore_pats)
+
+    def _onerror(err: OSError) -> None:
+        p = getattr(err, "filename", None) or "?"
+        if not _blind_dir(p):
+            blind.append(f"{p} (dir unreadable: {err.strerror})")
+
+    for dirpath, dirnames, filenames in os.walk(root, onerror=_onerror):
+        d = os.path.join(dirpath, "")  # dir-as-path form for the dir filter
+        if _blind_dir(dirpath) or _blind_dir(d):
+            # walk still DESCENDS into an unreadable dir (readdir on it can
+            # fail later); the scan skips it by rule, so its children are
+            # skipped by rule too.
+            dirnames[:] = []
+            continue
+        for f in filenames:
+            p = os.path.join(dirpath, f)
+            if _blind_file(p):
+                continue
+            try:
+                st = os.stat(p)
+            except OSError:
+                continue  # raced-away/dangling: nothing was hidden by a permission wall
+            if statmod.S_ISREG(st.st_mode) and not os.access(p, os.R_OK):
+                blind.append(p)
+    if blind:
+        raise ScanBlind(blind)
 
 
 def scan_working_tree(root: str) -> list[Finding]:
     findings = []
     ignore_pats = load_ignore_patterns(_ignore_root(root))
+    if os.path.isdir(root):
+        # c124: audit the walk BEFORE scanning it — a path we cannot read
+        # gets NAMED (rc 2), never blessed by absence (D0-D2 pre-fix false
+        # cleans: see c124 EXPECT.md D0-D2).
+        audit_blind(root, ignore_pats)
     for name, p in files_working_tree(root):
         if is_ignored(name, ignore_pats):
             continue
@@ -490,4 +563,11 @@ if __name__ == "__main__":
         sys.exit(main())
     except GitTimeout as e:
         print(f"secretgate: {e}", file=sys.stderr)
+        sys.exit(2)
+    except ScanBlind as e:
+        # c124: blindness is a named tool-die (rc 2), NEVER a clean verdict.
+        print("secretgate: BLIND — scan refuses to certify paths it "
+              "cannot read:", file=sys.stderr)
+        for b in e.args[0]:
+            print(f"  blind: {b}", file=sys.stderr)
         sys.exit(2)
