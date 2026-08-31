@@ -17,6 +17,15 @@ structurally invisible (B's c30 vacuous-assert lesson, achieved without a
 YAML parser). Job-level `uses:` (workflow_call) and composite `runs:` steps
 are inside the tracked subtree and get collected.
 
+Doc-pins leg (A c113, fifth edge — the doc half of my own c106/c107 read-edge
+law): the README fenced snippets are what STRANGERS paste, yet they carried
+mutable @vN tags while every EXECUTING uses: here is a 40-hex sha. A mutable
+doc ref minted supply-chain exposure one paste deep, invisible to every
+workflow leg. Every `uses:` value inside a ``` fence in README.md must be a
+40-hex content address (or local ./); prose mentions outside fences are not
+judged (not pasteable code). Runs FIRST and vacuity-guarded: a README with
+zero fenced uses: is RED (rail blind = worse than none, c27).
+
 Allowed shapes:
   - 40-hex commit sha            (content address)
   - './...'                      (local, same commit)
@@ -37,7 +46,9 @@ import re
 import sys
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
-OWN_REPO = "tianzhicdev/secretgate"
+# c113 doc-pins leg: a `uses:` value on one line of a fenced snippet.
+USES_VALUE_RE = re.compile(r"(?:^|\s)(?:-\s+)*uses:\s*(\S+)")
+OWN_REPO = "tianzhicdev/secretgate-action"
 SECRETGATE_ACTION = "tianzhicdev/secretgate-action"
 # c36: YAML keys may be QUOTED ("uses": x, 'jobs': {…}) — GitHub's parser
 # accepts them; a walker keyed only on bare identifiers silently skips them.
@@ -293,6 +304,31 @@ def visible_uses(path):
     return vals
 
 
+def fence_uses(path):
+    """Every (line_no, value) whose line is INSIDE a ``` fence in a markdown
+    file and carries a `uses:` value. Fence tracking is line-based (``` opens,
+    ``` closes); an unterminated fence at EOF is a malformed doc — reported by
+    the caller as vacuity-adjacent RED rather than guessing prose scope
+    (same refusal shape as dead-ref-check.py's fence rule)."""
+    hits = []
+    in_fence = False
+    with open(path, encoding="utf-8") as fh:
+        for n, raw in enumerate(fh, 1):
+            stripped = raw.strip()
+            if stripped.startswith("```"):
+                in_fence = not in_fence
+                continue
+            if not in_fence:
+                continue
+            # comment lines inside a yaml fence are NOT pasted code that
+            # executes; mirror the workflow legs' comment-invisibility (B c30).
+            code = strip_comment(raw).strip()
+            m = USES_VALUE_RE.search(code)
+            if m:
+                hits.append((n, m.group(1).strip("'\"")))
+    return hits, in_fence
+
+
 def allowed(value):
     base = value.split("@", 1)
     target = base[0]
@@ -369,6 +405,39 @@ def main() -> int:
     if len(sys.argv) > 2:
         print("usage: workflow-pins.py [repo-root]", file=sys.stderr)
         return 2
+    # --- c113 doc-pins leg (README fenced snippets) — runs FIRST so a doc
+    # verdict never hides behind a later workflow-leg early-return. ---
+    doc_bad = 0
+    readme = os.path.join(root, "README.md")
+    if not os.path.isfile(readme):
+        print("::error::no README.md at repo root — doc-pins leg vacuous "
+              "(a rail that sees nothing is worse than none, c27). Failing.",
+              file=sys.stderr)
+        doc_bad = 1
+    else:
+        fhits, unclosed = fence_uses(readme)
+        if unclosed:
+            print("::error::README.md ends INSIDE an unclosed ``` fence — "
+                  "refusing to guess which uses: lines are pasteable code.",
+                  file=sys.stderr)
+            doc_bad = 1
+        elif not fhits:
+            print("::error::README.md has ZERO fenced uses: lines — the "
+                  "doc-pins leg saw nothing. If snippets were deliberately "
+                  "removed, update this leg's expectation here; until then "
+                  "this is RED (vacuous-green class, c27).", file=sys.stderr)
+            doc_bad = 1
+        for (n, v) in fhits:
+            if allowed(v):
+                print(f"ok: README.md:{n} fenced uses: -> "
+                      f"{v if len(v) < 60 else v[:52] + '..'}")
+            else:
+                print(f"::error::README.md:{n} fenced uses: {v!r} — a "
+                      "MUTABLE TAG strangers will paste verbatim (A c113 "
+                      "doc-pins class). Replace with the 40-hex tag commit "
+                      "(gh api repos/<owner>/<repo>/git/ref/tags/<tag>) and "
+                      "comment the version.", file=sys.stderr)
+                doc_bad = 1
     targets = []
     gh = os.path.join(root, ".github")
     for dirpath, _dirs, files in os.walk(gh):
@@ -483,7 +552,7 @@ def main() -> int:
                 print(f"::error::{os.path.relpath(path, root)}: {e}",
                       file=sys.stderr)
                 bad = 1
-    if bad:
+    if bad or doc_bad:
         return 1
     print(f"OK: all {len(collected)} uses: refs content-addressed "
           "(sha / local ./ / same-repo)")
