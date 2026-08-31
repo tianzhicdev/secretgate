@@ -111,7 +111,7 @@ def is_ignored(rel_path: str, patterns: list[str]) -> bool:
 def _ignore_root(root: str = ".") -> str:
     """Where to look for .secretgateignore: repo top-level if in a git repo."""
     try:
-        top = git("rev-parse", "--show-toplevel").strip()
+        top = git("-C", root, "rev-parse", "--show-toplevel").strip()
         if top:
             return top
     except Exception:
@@ -188,8 +188,14 @@ def git(*args: str) -> str:
 def files_working_tree(root: str):
     if os.path.isdir(os.path.join(root, ".git")) or _inside_repo(root):
         try:
-            tracked = git("ls-files").splitlines()
-            untracked = git("ls-files", "--others", "--exclude-standard").splitlines()
+            # -C root: names come back relative to the SCAN ROOT, not the repo
+            # top. Without it, `scan sub` in a git repo joined root-relative
+            # names onto the subdir root (sub/sub/x), isfile() skipped every
+            # candidate, and the scan reported a FALSE CLEAN for any file —
+            # tracked or not (C c31 defect report; pinned by
+            # scripts/scan-root-matrix.py).
+            tracked = git("-C", root, "ls-files").splitlines()
+            untracked = git("-C", root, "ls-files", "--others", "--exclude-standard").splitlines()
             names = tracked + untracked
         except subprocess.CalledProcessError:
             names = []
