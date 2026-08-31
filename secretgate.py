@@ -127,10 +127,22 @@ def load_ignore_patterns(root: str = ".") -> list[str]:
 
 def is_ignored(rel_path: str, patterns: list[str]) -> bool:
     """gitignore-flavoured match: 'dir/' prefixes, '*' globs via fnmatch,
-    bare names match any path segment or a file's basename."""
+    bare names match any path segment or a file's basename.
+
+    c114 (C c109 library-door law, measured): an EMPTY pattern string used to
+    SUPPRESS any path whose last segment is empty (a trailing-slash path,
+    e.g. is_ignored('dir/', ['']) -> True). load_ignore_patterns() filters
+    blank lines, so the file door was never reachable — but a library caller
+    building the list by hand (raw splitlines(), ported CI glue) hit it at
+    the import door only. Empty/whitespace patterns can never legitimately
+    mean 'ignore something', so they are inert here (refuse-to-match, the
+    fail-safe direction: inert pattern -> file re-SCANNED, never blessed).
+    CLI main() has no --ignore flag; the parameter has exactly these doors."""
     from fnmatch import fnmatch
     parts = rel_path.split("/")
     for pat in patterns:
+        if not pat.strip():
+            continue  # c114: empty pattern matches NOTHING (suppression footgun closed)
         if pat.endswith("/"):
             d = pat.rstrip("/")
             if any(fnmatch(p, d) for p in parts[:-1]):
