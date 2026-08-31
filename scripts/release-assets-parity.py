@@ -54,12 +54,23 @@ def get(url, raw=False):
     # (GitHub release-asset CDN hiccups are real; hookpack leg green,
     # secretgate/action legs died at 30s). One retry pass with backoff,
     # then fail loud — never silent-skip a leg.
+    # c52: retry does NOT fix a STRUCTURAL cap. hookpack run 33352533925
+    # attempt 1 died here: 'HTTP Error 403: rate limit exceeded' — an
+    # unauthenticated api.github.com call shares the shared-runner-IP
+    # 60 req/h anonymous quota, which 3 sibling pushes in the same minute
+    # can exhaust. GITHUB_TOKEN (optional env, wired in the workflow step)
+    # moves the call onto the per-job 5000/h quota. Absent token = public
+    # read with no Authorization header at all (empty must never ship a
+    # 'Bearer ' prefix); flip harness proves both directions on a local
+    # catcher.
+    headers = {"User-Agent": UA, "Accept": "application/vnd.github+json"}
+    token = os.environ.get("GITHUB_TOKEN", "")
+    if token:
+        headers["Authorization"] = "Bearer " + token
     last = None
     for attempt in range(4):
         try:
-            req = urllib.request.Request(
-                url, headers={"User-Agent": UA,
-                              "Accept": "application/vnd.github+json"})
+            req = urllib.request.Request(url, headers=headers)
             d = urllib.request.urlopen(req, timeout=30).read()
             return d if raw else json.loads(d)
         except Exception as e:  # noqa: BLE001 - retry any transport error
