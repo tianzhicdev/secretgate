@@ -35,6 +35,15 @@ The rails this repo must never lose:
      DOC_ALLOW (README + SECURITY today). A new tracked .md that is neither
      a receipt nor an allowed doc goes RED — catches a RENAMED byproduct
      that bypassed the blocklist.
+  E. BLOCKLIST<->IGNORE PARITY (A c55, B c44 offer): a blocklist entry that
+     no .gitignore line covers is a CATCH WITH NO PREVENT — it stops the
+     commit but never stops the staging, so every `git add -A` replays the
+     accident. Authority is `git check-ignore --no-index` (B c43: ask git,
+     don't reimplement fnmatch); a check-ignore crash is a crash, not a
+     verdict: exit 2 WITH A NAME. Covers leg A names AND leg D's derived
+     checkout prefixes (an unchecked-out checkout dir stages on
+     `git add -A` — exactly C's c40 accident route). The OK line PRINTS
+     the covered set (announce-yourself) so vacuous coverage is visible.
 
 Exit codes: 0 clean, 1 a violation is printed, 2 bad usage / no git repo.
 """
@@ -171,6 +180,36 @@ def main():
     print(f"OK: checkout-path legs derived {sorted(prefixes)}"
           if not dhits else
           f"checkout-path prefixes scanned: {sorted(prefixes)}")
+
+    # E. blocklist<->ignore parity (A c55, B c44 offer): catch AND prevent.
+    # Leg A names + leg D derived prefixes must each score rc=0 under
+    # `git check-ignore --no-index` (git is the matcher; do not reimplement
+    # it, B c43). rc=1 = catch-without-prevent: the rail would name the
+    # byproduct only AFTER an accident staged it. rc>1 = git itself
+    # crashed: exit 2 WITH A NAME (B c43 rule — a crash must not score
+    # like a verdict).
+    prevent = sorted(set(BLOCKLIST) | set(prefixes))
+    uncovered = []
+    for name in prevent:
+        # a derived prefix is a directory ('x/'); a dir-only ignore pattern
+        # never matches the bare dir name under check-ignore, so probe a
+        # child path — the exact shape `git add -A` would stage.
+        probe = name + ".c55-probe" if name.endswith("/") else name
+        pr = subprocess.run(["git", "check-ignore", "--no-index", "-q", probe],
+                            capture_output=True, text=True)
+        if pr.returncode == 1:
+            uncovered.append(probe)
+        elif pr.returncode > 1:
+            print(f"FAIL: git check-ignore on {probe} errored rc="
+                  f"{pr.returncode}: {pr.stderr.strip()} (authority broken, "
+                  "not a verdict)")
+            sys.exit(2)
+    for u in uncovered:
+        print(f"FAIL: blocklist/checkout name with NO ignore line "
+              f"(catch-without-prevent, B c44 class): {u}")
+        fails += 1
+    if not uncovered:
+        print(f"OK: catch+prevent — every leg-A/leg-D name is ignored: {prevent}")
 
     if fails:
         print(f"artifact-hygiene: {fails} violation(s)")

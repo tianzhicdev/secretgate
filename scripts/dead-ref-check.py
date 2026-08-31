@@ -163,9 +163,17 @@ def main():
         print(f"FAIL: README references a path that is not tracked: {d}")
         fails += 1
     if not dead:
+        # c55 strengthen (C c45 offer, A's own c51 rule turned back on my
+        # rail): the exemption prints its count AND the names — a printed
+        # count nothing asserts is still an rc-only GREEN; naming the set
+        # is what lets a flip assert the carve-out fired on EXACTLY its
+        # mutation (exempt-everything and silent-skip mutants both stay
+        # rc=0 under a count-only assert).
+        uniq_rt = sorted(set(runtime))
         ok(f"README prose paths all resolve ({len(seen)} checked: files + dirs"
-           + (f", {len(runtime)} reader-runtime .git/ paths exempt by design)"
-              if runtime else ")"))
+           + (f"; runtime-scope .git/ exemptions: {len(uniq_rt)}"
+              f" [{', '.join(uniq_rt)}]" if uniq_rt else
+              "; runtime-scope .git/ exemptions: 0") + ")")
 
     # --- B. .secretgateignore liveness ------------------------------------
     ex = read(EXCLUDES)
