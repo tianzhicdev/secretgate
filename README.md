@@ -118,7 +118,7 @@ via ethkey-lite's reusable workflow — two lines in any repo:
 ```yaml
 jobs:
   verify:
-    uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@v0.8
+    uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@v0.9
     with:
       receipt: proofs/secretgate-v1.2.2-proof.md
       require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"   # quote it: unquoted 0x… is a YAML int

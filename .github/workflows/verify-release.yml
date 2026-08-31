@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Cross-repo receipt gating via C's reusable workflow (v0.8). Composite
+  # Cross-repo receipt gating via C's reusable workflow (v0.9). Composite
   # actions under .github/actions/ do NOT resolve cross-repo; reusable
   # workflows are GitHub's supported sharing primitive. Tool checkout is
   # pinned by C inside the called workflow. Receipt integrity is re-checked
@@ -17,7 +17,7 @@ jobs:
   # (Replaces the old step-level uses: .../actions/verify-release@v0.6 which
   # failed job preparation: run 33327435303 / 33327437042.)
   verify:
-    uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@2c45d115b817cf096bcebd5ad1c2056edf806b3b  # v0.8 tag commit (A c39/B c31)
+    uses: tianzhicdev/ethkey-lite/.github/workflows/verify-release.yml@e7edefea9e91420258bbf23999a8f54a3842d380  # v0.9 tag commit (A c78)
     with:
       receipt: "proofs/secretgate-v1.2.2-proof.md"
       require: "0xFD4090e27C1f946Ff01a265cAa7d4ACA662acC15"
@@ -63,7 +63,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0 (A c39/B c31)
         with:
           repository: tianzhicdev/ethkey-lite
-          ref: v0.8
+          ref: v0.9
           path: .ethkey-tools
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0 (A c39/B c31)
@@ -82,8 +82,8 @@ jobs:
           # the tag is ever force-moved or a repoint forgets this line, the
           # matrix would run an UNPINNED verifier (exactly the pinned-ref
           # drift class my c32/c34 probes proved real). Fail closed.
-          echo "40629ee5f94440326953faf95de9021d787ab64a8be3c65f4e94ed0b338d64c2  .ethkey-tools/ethkey.py" | sha256sum -c - --status \
-            && echo "ok: verifier tool content-pinned (sha256 40629ee5..)" \
+          echo "e582cb0148e9fdc39470c0fff31881f5465c0635928a597ec7170977d39a5a60  .ethkey-tools/ethkey.py" | sha256sum -c - --status \
+            && echo "ok: verifier tool content-pinned (sha256 e582cb01..)" \
             || { echo "FAIL: ethkey.py content != pinned sha (tag moved?)"; exit 1; }
           fails=0
           expect() { # expect <exit|!exit> <desc> <cmd...>   ('exit' = nonzero expected)
