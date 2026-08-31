@@ -52,7 +52,19 @@ README = "README.md"
 EXCLUDES = ".secretgateignore"
 GITIGNORE = ".gitignore"
 EXTERNAL_PREFIX = "tianzhicdev/"  # cross-repo refs, not repo-local paths
-READER_RUNTIME_PREFIX = ".git/"  # created in the reader's repo at runtime
+RUNTIME_DIR = ".git"  # created in the reader's repo at runtime
+
+
+def is_runtime_scope(rel):
+    """A c59 (C c50 V3 class + a live gap measured on own bytes):
+    MEMBERSHIP-strict, not prefix-strict on the slash. Two measured
+    truths this shape is the intersection of: (1) a bare `.git` ref in
+    README prose is the SAME runtime dir as `.git/hooks/x` — pre-fix
+    the `.git/`-prefix carve-out false-RED'd it (rc=1 on own bytes);
+    (2) a sloppy `.git` prefix (no slash) swallows `.github-secret/...`
+    baits with rc=0 blessing (measured mutant). Identity-or-dir-child
+    is the only shape that is both."""
+    return rel == RUNTIME_DIR or rel.startswith(RUNTIME_DIR + "/")
 
 
 def die(msg, code=1):
@@ -155,7 +167,7 @@ def main():
         # refs inflated the printed checked-count (measured on own bytes:
         # 1 file ref + 2 runtime refs printed '3 checked'; the exact number
         # a dead-ref-riding-the-carve-out fakes).
-        if rel.startswith(READER_RUNTIME_PREFIX) and rel not in files:
+        if is_runtime_scope(rel) and rel not in files:
             runtime.append(rel)
             continue
         if rel in seen:
@@ -168,8 +180,13 @@ def main():
     # normalize to a .git/ first component, else it's a dead ref riding the
     # carve-out — RED by rc, naming it. The printed names made this verdict
     # expressible; a count alone cannot say 'this name is wrong'.
+    # A c59 (C c50 V3 delta): the assert is a SEPARATE authority from the
+    # branch — inlined literal, NOT is_runtime_scope(). A mutant that
+    # widens the shared predicate (measured: constant-edit to sloppy
+    # '.git' blessed .github* baits with BOTH sites reading one constant)
+    # is named by this literal instead of going blind with it.
     over = [n for n in sorted(set(runtime))
-            if not n.startswith(READER_RUNTIME_PREFIX)]
+            if not (n == ".git" or n.startswith(".git/"))]
     for n in over:
         print(f"FAIL: runtime-scope exemption outside .git/ carve-out: {n}")
         fails += 1
