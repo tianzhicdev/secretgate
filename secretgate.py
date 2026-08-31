@@ -76,8 +76,30 @@ RULES = [
 # dialects (insert-key-here, changeme123, YOUR_TOKEN, your_api_key_here) stay
 # suppressed; mid-token embeddings survive to be flagged. Blast radius on
 # fleet bytes: 0 delta (931+416 findings identical old-vs-new).
+# v1.2.5 x5-arm fix (C c81 x5_midrun + A c86 probe): the bare `x{5,}` arm —
+# kept by the v1.2.1 rationale 'masking intent ... or long (>=5)' — sat
+# OUTSIDE the c85 lookbehind: a real secret with any literal 5-x run
+# mid-value was blessed on both paths at every gen incl v1.2.4
+# (agents/A/work/c86-x5-donotflag/ 22-cell matrix). The rationale's own
+# examples are self-refuting: AKIA+16x is flagged by the exact vendor rule
+# (no placeholder logic there — measured kill both gens), and a long run
+# after a word char is an EMBED, not a mask. Masking intent needs the run to
+# STAND ALONE (anchored arm covers any length incl 'XXXX...XXXX',
+# 'sk_live_xxx', '<your-key>'); an alphanumeric-preceded tail run is the
+# embed shape. Bare arm dropped = last unanchored substring in the file.
+# RESIDUAL CONTRACT (measured, c86): the trailing shape `x{5,}(?![A-Za-z0-9])`
+# stays suppressed — lowercase masked fixtures ('AKIA' + 16 lowercase x, the
+# A2 vocab-pin) never reach the uppercase-only vendor rule, and a
+# word-char-preceded MID-value run (embed) now survives. Mid = kill,
+# tail = mask: the discriminator is the lookahead, not the length.
+# v1.2.5 prose-arm fix (C c80/c81 do_not_flag): 'do\s+not\s+flag' word-
+# bounded (trailing \b — the old form matched inside 'flaggable'); kept as a
+# DOCUMENTED opt-in, same standing as \bnosec\b (README allow-comment section,
+# index.html, action README all name it). C's 'undocumented' charge measured
+# FALSE on README/index surfaces (grep-confirmed c86); the unbounded-tail
+# charge was real and is now closed.
 PLACEHOLDER_RE = re.compile(
-    r"(?i)(?<![A-Za-z0-9])(changeme|your[-_]?|placeholder|example|dummy|test(ing)?[-_]|redacted|insert)|(?<![A-Za-z0-9])x{3,}(?![A-Za-z0-9])|x{5,}|<.*>|\{\{.*\}\}|\$\{.*\}"
+    r"(?i)(?<![A-Za-z0-9])(changeme|your[-_]?|placeholder|example|dummy|test(ing)?[-_]|redacted|insert)|(?<![A-Za-z0-9])x{3,}(?![A-Za-z0-9])|x{5,}(?![A-Za-z0-9])|<.*>|\{\{.*\}\}|\$\{.*\}"
 )
 SKIP_FILE_RE = re.compile(
     r"(?i)(^|/)(\.git/|node_modules/|dist/|build/|venv/|\.venv/|__pycache__/|target/|vendor/)|\.(lock|min\.js|min\.css|map|png|jpg|jpeg|gif|ico|woff2?|ttf|eot|pdf|zip|gz|bz2|xz|so|dll|dylib|class|pyc|wasm)$"
@@ -85,7 +107,7 @@ SKIP_FILE_RE = re.compile(
 # v1.2.1: `nosec` was an unanchored substring — any line merely containing
 # "nosecret..." (a variable name, a sentence) silenced EVERY finding on it.
 # Word-bounded: opt-in stays `nosec` / `secretgate: allow`, never a substring.
-ALLOW_COMMENT_RE = re.compile(r"(?i)secretgate:?\s*allow|\bnosec\b|pragma:\s*allowlist|do\s+not\s+flag")
+ALLOW_COMMENT_RE = re.compile(r"(?i)secretgate:?\s*allow|\bnosec\b|pragma:\s*allowlist|\bdo\s+not\s+flag\b")
 
 IGNORE_FILE_NAME = ".secretgateignore"
 

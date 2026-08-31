@@ -166,9 +166,43 @@ def a4_dictword_bounds() -> None:
        "entropy path swept clean")
 
 
+def a5_x5run_bounds() -> None:
+    """v1.2.5 (c86): the bare `x{5,}` arm blessed any secret carrying a
+    5-x run at EVERY gen (C c81 x5_midrun). Discriminator is position, not
+    length: MID-value run = embed = must survive; run at token END = mask
+    shape = stays suppressed (lowercase masked fixtures never reach the
+    uppercase-only vendor rule; measured trade, not assumed)."""
+    rng = random.Random(86)
+    body = ""
+    while True:
+        body = "".join(rng.choice(ALPHA) for _ in range(40))
+        if "x" not in body.lower() and score_token(body):
+            break
+    embed = body[:15] + "xxxxx" + body[15:35]
+    tail = body[:20] + "xxxxxxxx"
+    assert score_token(embed)  # embed must ALSO reach the entropy sweep
+    # (tail leg needs no score assert: the generic path checks PLACEHOLDER
+    # BEFORE scoring, so suppression is placeholder-decided either way —
+    # a score assert on it would be an over-requirement, c86 self-catch)
+    if not scan_text(f'api_key = "{embed}"', "t"):
+        die("A5 x5-embed overmatch: mid-token x-run silenced a real secret")
+    if scan_text(f'api_key = "{tail}"', "t"):
+        die("A5 mask regression: token-END long x-run newly EXPOSED")
+    if scan_text('aws = "AKIA' + "x" * 16 + '"', "t"):
+        die("A5 mask regression: lowercase masked AKIA fixture newly EXPOSED")
+    # prose-arm tail bound (c86 do_not_flag fix): 'flaggable' is not an opt-in
+    if scan_text(f'api_key = "{body}"  # do not flaggable', "t") == []:
+        die("A5 prose-arm overmatch: 'do not flaggable' silenced the line")
+    if scan_text(f'api_key = "{body}"  # please do not flag in audits', "t"):
+        die("A5 documented opt-in 'do not flag' no longer suppresses")
+    ok("A5 x5/prose-arm bounds: embed flagged, mask shapes suppressed, "
+       "'flaggable' no longer an opt-in")
+
+
 if __name__ == "__main__":
     a1_silent_corpus()
     a2_vocab_pin()
     a3_allow_bounds()
     a4_dictword_bounds()
-    print("placeholder-mutation-matrix: 4/4 PASS")
+    a5_x5run_bounds()
+    print("placeholder-mutation-matrix: 5/5 PASS")
