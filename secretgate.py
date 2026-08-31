@@ -63,8 +63,21 @@ RULES = [
 # intent is a run that either stands alone as its own word (xxxxxxx, sk-xxx-)
 # or is long (>=5) as in AKIAxxxxx / sk_live_XXXX...; random-token mid-runs
 # are 3-4 chars and now survive to be flagged.
+# v1.2.4 dictionary-arm fix (c85 sweep): the dictionary arms (changeme|your|
+# placeholder|example|dummy|test[-_]|redacted|insert) were RAW unanchored
+# substrings — the exact sibling of the 'xxx+' arm fixed in v1.2.1 and the
+# 'nosec' arm in ALLOW_COMMENT_RE. Measured (agents/A/work/c85-placeholder-
+# substr/): a 40-hex secret with a literal 'insert'/'example'/'your'/'xxx'
+# embedded ANYWHERE is silently dropped on BOTH the generic-api-key path and
+# the entropy-sweep path — rc 0 false clean at every published gen v1.1.0..
+# v1.2.3, entropy leg machine-proven non-vacuous (token scores + no other
+# placeholder match with the word removed; only the word delta suppresses).
+# Word-boundary lookbehind anchors the arms to a token START: template
+# dialects (insert-key-here, changeme123, YOUR_TOKEN, your_api_key_here) stay
+# suppressed; mid-token embeddings survive to be flagged. Blast radius on
+# fleet bytes: 0 delta (931+416 findings identical old-vs-new).
 PLACEHOLDER_RE = re.compile(
-    r"(?i)(changeme|your[-_]?|placeholder|example|dummy|test(ing)?[-_]|(?<![A-Za-z0-9])x{3,}(?![A-Za-z0-9])|x{5,}|<.*>|\{\{.*\}\}|\$\{.*\}|redacted|insert)"
+    r"(?i)(?<![A-Za-z0-9])(changeme|your[-_]?|placeholder|example|dummy|test(ing)?[-_]|redacted|insert)|(?<![A-Za-z0-9])x{3,}(?![A-Za-z0-9])|x{5,}|<.*>|\{\{.*\}\}|\$\{.*\}"
 )
 SKIP_FILE_RE = re.compile(
     r"(?i)(^|/)(\.git/|node_modules/|dist/|build/|venv/|\.venv/|__pycache__/|target/|vendor/)|\.(lock|min\.js|min\.css|map|png|jpg|jpeg|gif|ico|woff2?|ttf|eot|pdf|zip|gz|bz2|xz|so|dll|dylib|class|pyc|wasm)$"

@@ -112,8 +112,63 @@ def a3_allow_bounds() -> None:
     ok("A3 allow-bounds: substring does not silence, explicit pragma still does")
 
 
+# c85 A4: dictionary-arm embeddings must SURVIVE (v1.2.4 fix); template
+# dialects that merely START with the word must stay suppressed. Runtime-
+# derived tokens (c25 law): the word is static vocabulary, the secret body is
+# hash-derived, so no full token literal exists in any committed file.
+import hashlib as _hl
+
+_BASE = _hl.sha256(b"money-c85-fixture").hexdigest()
+_DICT_EMBED = [
+    # (word, iso-8601 splice position) -> mid-token embedding, generic path
+    ("insert", 8), ("example", 12), ("your", 4), ("changeme", 10),
+    ("redacted", 16),
+]
+_TEMPLATE_START = [
+    "insert-key-here-abcdef0123456789ab", "example_secret_value_9f8e7d6c",
+    "your-next-api-token-aaaa1111bbbb", "changeme-in-prod-please-99887766",
+]
+
+
+def a4_dictword_bounds() -> None:
+    for word, pos in _DICT_EMBED:
+        tok = _BASE[:pos] + word + _BASE[pos + len(word):][:40 - pos]
+        tok = (tok[:40]) if len(tok) >= 40 else tok + _BASE[:40 - len(tok)]
+        if word not in tok:
+            die(f"A4 fixture vacuous: '{word}' not embedded in token")
+        f = scan_text(f'api_secret = "{tok}"', "t")
+        if not f:
+            die(f"A4 dictword overmatch: '{word}'-embedded secret suppressed")
+    for tmpl in _TEMPLATE_START:
+        f = scan_text(f'api_secret = "{tmpl}"', "t")
+        if f:
+            die(f"A4 template dialect newly EXPOSED (false positive): {tmpl}")
+    # entropy-path leg: token found at runtime so score_token(raw)==True and
+    # no placeholder matches WITHOUT the word — only the word delta can kill
+    rng = random.Random(85)
+    word = "example"
+    found = False
+    for _ in range(50000):
+        body = "".join(rng.choice(ALPHA) for _ in range(33))
+        raw = body[:4] + body[4 + len(word):]
+        tok = body[:4] + word + body[4 + len(word):]
+        if score_token(tok) and score_token(raw) \
+                and not PLACEHOLDER_RE.search(raw):
+            f = scan_text(f'cache_key = "{tok}"', "t")  # no assignment keyword
+            if not f:
+                die("A4 entropy-path overmatch: embedded word silenced sweep")
+            found = True
+            break
+    if not found:
+        die("A4 entropy leg vacuous: no eligible token found")
+    ok(f"A4 dictword-bounds: {len(_DICT_EMBED)} embeddings flagged, "
+       f"{len(_TEMPLATE_START)} start-of-token templates suppressed, "
+       "entropy path swept clean")
+
+
 if __name__ == "__main__":
     a1_silent_corpus()
     a2_vocab_pin()
     a3_allow_bounds()
-    print("placeholder-mutation-matrix: 3/3 PASS")
+    a4_dictword_bounds()
+    print("placeholder-mutation-matrix: 4/4 PASS")
