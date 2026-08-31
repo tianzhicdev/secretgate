@@ -22,6 +22,13 @@ RUNTIME (c25 self-scan rule: zero static real-format tokens in this repo):
   M6 scan DIR    outside any repo     -> rc 1   (os.walk fallback still works)
   M7 scan sub    plant + allow comment on SAME line -> rc 0 (allow rule still
                                        applies through the new -C route)
+  M8 scan FILE   in git repo, plant   -> rc 1  (old engine: rc 0 FALSE CLEAN
+                                       — c69 defect #2, zero files scanned)
+  M9 scan FILE   TRACKED plant        -> rc 1   (old engine: rc 0)
+  M10 scan FILE  outside any repo     -> rc 1   (old engine: rc 0)
+  M11 scan FILE  clean file           -> rc 0   (non-vacuity on the file leg)
+  M12 scan MISSING path               -> rc 2, output never says 'clean'
+                                       (old engine: rc 0 FALSE CLEAN)
 
 Runs the engine via $SECRETGATE (CI sets it to the repo's own secretgate.py);
 falling back to the repo root. Exits 1 naming any failed case.
@@ -134,6 +141,55 @@ def m7(tmp):
     plant(tmp, "sub/allowed.py", allow=True)
     rc, out = run(tmp, "sub")
     assert rc == 0, f"allow-comment regression via new route: rc={rc} {out}"
+
+
+# ---- v1.2.3: FILE-arg + missing-path contract (C c69 defect #2) ----------
+# Old engine: `scan <FILE>` yielded ZERO files in BOTH branches (in-repo:
+# `git -C <file>` raises -> names=[]; out-of-repo: os.walk on a file ->
+# nothing) and printed 'clean' rc 0 for ANY file, plants included. Missing
+# paths printed the same false 'clean'. Flip proven against
+# `git show v1.2.2:secretgate.py`: M8/M9/M10/M12 go RED, M11 green.
+
+
+@case("M8 scan <FILE> in git repo finds plants (c69 defect)")
+def m8(tmp):
+    plant(tmp, "leak.txt")
+    rc, out = run(tmp, "leak.txt")
+    assert rc == 1, f"FALSE CLEAN file-arg in repo: rc={rc} out={out}"
+    assert "leak.txt" in out, out
+
+
+@case("M9 scan <FILE> finds TRACKED plant (c69 defect)")
+def m9(tmp):
+    plant(tmp, "leak.txt")
+    git(tmp, "add", "-f", "leak.txt")
+    git(tmp, "commit", "-qm", "plant")
+    rc, out = run(tmp, "leak.txt")
+    assert rc == 1, f"FALSE CLEAN tracked file-arg: rc={rc} out={out}"
+
+
+@case("M10 scan <FILE> outside a repo (c69 defect)")
+def m10(tmp):
+    outside = tempfile.mkdtemp(prefix="sg-outside-file-")
+    plant(outside, "a.py")
+    r = subprocess.run([sys.executable, ENGINE, "scan", os.path.join(outside, "a.py")],
+                       capture_output=True, text=True)
+    assert r.returncode == 1, f"FALSE CLEAN out-of-repo file-arg: rc={r.returncode} {r.stdout}"
+
+
+@case("M11 scan <clean FILE> stays green (non-vacuity)")
+def m11(tmp):
+    with open(os.path.join(tmp, "ok.txt"), "w") as f:
+        f.write("nothing to see\n")
+    rc, out = run(tmp, "ok.txt")
+    assert rc == 0, f"clean file must be rc0: {out}"
+
+
+@case("M12 scan <missing path> fails closed rc2, never false-clean")
+def m12(tmp):
+    rc, out = run(tmp, "no-such-path.txt")
+    assert rc == 2, f"missing path must exit 2, got rc={rc}: {out}"
+    assert "clean" not in out, f"missing path must never print 'clean': {out}"
 
 
 def main() -> int:

@@ -6,7 +6,8 @@ Scans the working tree, the index, or full git history for leaked credentials
 pre-commit / pre-push hook. Stdlib only, Python 3.9+.
 
 Usage:
-  secretgate scan [PATH]              scan tracked+untracked files (default .)
+  secretgate scan [PATH]              scan tracked+untracked files (default .);
+                                      PATH may also be a single FILE (v1.2.3)
   secretgate scan --staged            scan staged diff only (pre-commit use)
   secretgate scan --history           scan every blob in all git history
   secretgate install                  install as pre-commit hook in this repo
@@ -186,6 +187,16 @@ def git(*args: str) -> str:
 
 
 def files_working_tree(root: str):
+    if os.path.isfile(root):
+        # v1.2.3 (C c69 defect #2): a FILE arg previously fell into both
+        # branches and yielded ZERO files — in-repo: `git -C <file>` raises
+        # -> names=[]; out-of-repo: os.walk on a file yields nothing — so
+        # `scan <file>` printed a FALSE CLEAN (rc 0) for ANY file, plants
+        # included. An explicitly-named file is the whole scan: yield it.
+        # Ignore-file semantics stay path-based (consistent with dir mode);
+        # same-line allow comments still apply via scan_text.
+        yield root, root
+        return
     if os.path.isdir(os.path.join(root, ".git")) or _inside_repo(root):
         try:
             # -C root: names come back relative to the SCAN ROOT, not the repo
@@ -367,6 +378,13 @@ def main(argv=None) -> int:
     elif args.history:
         findings = scan_history()
     else:
+        # v1.2.3 fail-closed (C c69 lesson: a clean verdict from a scan that
+        # scanned nothing is the worst output a secret scanner can produce):
+        # a nonexistent/undecodable PATH arg used to print 'clean' rc 0 —
+        # same bless-by-invisibility class as the file-arg defect. Exit 2.
+        if not os.path.exists(args.path):
+            print(f"secretgate: path does not exist: {args.path}", file=sys.stderr)
+            return 2
         findings = scan_working_tree(args.path)
     rc = report(findings, as_json=args.json)
     return 0 if args.fail_on_none else rc
