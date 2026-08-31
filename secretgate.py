@@ -149,7 +149,26 @@ def is_ignored(rel_path: str, patterns: list[str]) -> bool:
             if any(fnmatch(p, d) for p in parts[:-1]):
                 return True
         elif "*" in pat or "?" in pat:
-            if fnmatch(rel_path, pat) or any(fnmatch(p, pat) for p in parts):
+            # c125 (A's own README-example bless door, measured pre-fix):
+            # fnmatch's '*' crosses '/', so a pattern carrying '/' used to
+            # fnmatch the WHOLE rel_path — the README's own
+            # `tests/fixtures/*.b64` suppressed EVERY depth under tests/ =
+            # silent bless (files the user believes are scanned skipped,
+            # same direction as c69/c114). Shape now: a pattern with NO
+            # slash keeps today's shape (full-rel or any single segment —
+            # `*.log`, `v11-*.py` unchanged); a pattern WITH slashes
+            # fnmatches its segments as a WINDOW over the LAST
+            # len(pattern-segments) path segments, so it reaches any DEPTH
+            # (matching the dir-form any-depth convention above) but each
+            # wildcard stays inside one segment (gitignore semantics for
+            # the intra-pattern case).
+            pseg = pat.split("/")
+            if len(pseg) == 1:
+                if fnmatch(rel_path, pat) or any(fnmatch(p, pat) for p in parts):
+                    return True
+            elif len(pseg) <= len(parts) and all(
+                    fnmatch(parts[-len(pseg) + i], pseg[i])
+                    for i in range(len(pseg))):
                 return True
         else:
             if rel_path == pat or parts[-1] == pat or pat in parts:

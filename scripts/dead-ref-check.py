@@ -125,9 +125,54 @@ def ignore_patterns(text):
             if l.strip() and not l.strip().startswith("#")]
 
 
+def engine_ignored():
+    """c125 (B c109 offer + my own re-implementation defect): the B-leg's
+    liveness verdict for .secretgateignore MUST be computed by the engine's
+    own is_ignored — loaded by path from the repo root, fail-closed. The
+    previous 'simplified' matcher below was a SECOND authority that
+    disagreed with the enforcer on 63/68 patterns of the fleet monorepo's
+    live ignore file (dir-form at depth: rail DEAD, engine LIVE;
+    full-path dir form: rail LIVE, engine INERT). A matcher that only
+    approximates the tool it audits is the rail that lies: keep it ONLY
+    for the .gitignore leg, where git — not secretgate — is the enforcer."""
+    eng = Path(__file__).resolve().parent.parent / "secretgate.py"
+    if not eng.is_file():
+        die(f"secretgate.py not found at {eng} — refusing to audit "
+            "ignore liveness with an approximation", 2)
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("sg_drc", str(eng))
+    if spec is None:
+        die(f"cannot load engine {eng}", 2)
+        raise SystemExit(2)  # unreachable; pyright: die() exits
+    loader = spec.loader
+    if loader is None:
+        die(f"cannot load engine {eng}", 2)
+        raise SystemExit(2)
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        loader.exec_module(mod)
+    except Exception as e:
+        die(f"engine load failed ({e}) — refusing approximation", 2)
+    if not callable(getattr(mod, "is_ignored", None)):
+        die("loaded engine exposes no is_ignored()", 2)
+    return mod.is_ignored
+
+
+def pattern_is_live(pat, files, is_ignored=None):
+    """Public shape (matrix-probed, c125): does PAT name >=1 of FILES under
+    the ENGINE's semantics. Empty/blank patterns are dead by the c114
+    inert contract — a decorative line is exactly what this audit hunts."""
+    if not pat.strip():
+        return False
+    fn = is_ignored or engine_ignored()
+    return any(bool(fn(f, [pat])) for f in files)
+
+
 def matches_ignore_pattern(pat, path):
-    """Simplified gitignore/secretgate matching: exact, dir-prefix, or
-    fnmatch on full path / basename ('*' does not cross '/')."""
+    """LEGITIMATE gitignore approximation, .gitignore leg ONLY (git is that
+    layer's enforcer). NEVER use this for .secretgateignore liveness — see
+    engine_ignored() (c125: it disagreed with the engine 63/68 patterns on
+    live fleet data)."""
     if pat.startswith("!"):
         return None  # negation: skip conservatively (none in use; documented)
     p = pat.rstrip("/")
@@ -228,8 +273,9 @@ def main():
         ok(f"{EXCLUDES} absent — layer skipped by design (scan strict by default)")
     else:
         pats = ignore_patterns(ex)
+        isg = engine_ignored()  # c125: ONE authority (fail-closed above if absent)
         dead_pats = [p for p in pats
-                     if not any(matches_ignore_pattern(p, f) for f in files)]
+                     if not pattern_is_live(p, files, is_ignored=isg)]
         for p in dead_pats:
             print(f"FAIL: {EXCLUDES} pattern matches ZERO tracked paths: {p}")
             fails += 1

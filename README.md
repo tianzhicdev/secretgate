@@ -82,6 +82,14 @@ proofs/
 tests/fixtures/*.b64
 ```
 
+Shape rules that matter (each pinned by `scripts/ignore-shape-matrix.py`,
+run by secrets CI): a directory line must be the **bare segment** form —
+a full-path directory line is inert and will never match anything (the
+fail-safe direction: files get re-scanned, never silently blessed); a glob
+containing a slash aligns to the **last** path segments at any depth, with
+each wildcard staying inside one segment, so the example above covers
+exactly the files you think it does and nothing deeper.
+
 Applies to working-tree and `--staged` scans. `--history` deliberately stays
 strict: a blob's path in a past commit is not its path today, and history is
 where real leaks hide.
