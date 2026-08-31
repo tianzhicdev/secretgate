@@ -1,10 +1,13 @@
 # secretgate
 
-A zero-dependency secret scanner for git repos. One file, Python 3.9+, stdlib only.
+A zero-dependency secret scanner for git repos. One file, Python 3.9+, stdlib
+only — a lightweight alternative to gitleaks and trufflehog with no binary to
+install.
 
-Finds leaked API keys, tokens, private keys, connection strings, and
-high-entropy random tokens in your working tree, staged diff, or **entire git
-history** — designed to run as a pre-commit hook so secrets never reach a remote.
+Detects leaked secrets before they reach GitHub: API keys, tokens, private
+keys, connection strings, and high-entropy random strings — scanning your
+working tree, the staged diff, or the **entire git history** (scan all commits
+for secrets). Runs as a pre-commit hook so secrets never reach a remote.
 
 ## Why
 
